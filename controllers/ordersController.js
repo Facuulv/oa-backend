@@ -158,11 +158,12 @@ exports.create = asyncHandler(async (req, res) => {
 
         const [orderResult] = await connection.execute(
             `INSERT INTO pedidos
-             (usuario_id, cliente_nombre, cliente_email, cliente_telefono, tipo_entrega, direccion_entrega,
+             (usuario_id, cliente_id, cliente_nombre, cliente_email, cliente_telefono, tipo_entrega, direccion_entrega,
               subtotal, descuento, total, codigo_cupon, observaciones, estado, canal_origen)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                req.user?.id || null,
+                req.auth?.origen === 'ADMIN' ? req.auth.id : null,
+                req.auth?.origen === 'CLIENTE' ? req.auth.id : null,
                 data.customerName,
                 data.customerEmail,
                 data.customerPhone || null,
@@ -247,13 +248,18 @@ exports.myOrders = asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const offset = (page - 1) * limit;
 
+    const clienteId = req.cliente?.id ?? (req.auth?.origen === 'CLIENTE' ? req.auth.id : null);
+    if (!clienteId) {
+        throw new AppError('Cliente no autenticado', 401, 'NOT_AUTHENTICATED');
+    }
+
     const [orders] = await db.execute(
         `SELECT ${ORDER_LIST_SELECT}
          FROM pedidos o
-         WHERE o.usuario_id = ?
+         WHERE o.cliente_id = ?
          ORDER BY o.fecha_creacion DESC
          LIMIT ? OFFSET ?`,
-        [req.user.id, String(limit), String(offset)],
+        [clienteId, String(limit), String(offset)],
     );
 
     res.json({ data: orders });

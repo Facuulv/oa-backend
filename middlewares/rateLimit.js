@@ -65,7 +65,8 @@ const rateLimiter = (type = 'api') => (req, res, next) => {
         config.maxRequests = Math.max(config.maxRequests, localhostDevMax);
     }
 
-    const identifier = req.user?.id ? `user_${req.user.id}` : `ip_${clientIp}`;
+    const principalId = req.auth?.id || req.user?.id;
+    const identifier = principalId ? `user_${principalId}` : `ip_${clientIp}`;
     const key = `${type}_${identifier}`;
     const now = Date.now();
 

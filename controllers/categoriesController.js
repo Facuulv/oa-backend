@@ -5,7 +5,7 @@ const { AppError } = require('../middlewares/errorHandler');
 const PUBLIC_SELECT = `id,
         nombre AS name,
         descripcion AS description,
-        imagen_url AS image_url,
+        imagen_url,
         orden AS sort_order,
         activo AS active,
         fecha_creacion AS created_at,
@@ -30,15 +30,21 @@ exports.getById = asyncHandler(async (req, res) => {
 });
 
 exports.create = asyncHandler(async (req, res) => {
-    const { name, description, imageUrl, sortOrder } = req.validatedData;
+    const { name, description, imagen_url, sortOrder } = req.validatedData;
 
     const [result] = await db.execute(
         'INSERT INTO categorias (nombre, descripcion, imagen_url, orden) VALUES (?, ?, ?, ?)',
-        [name, description || null, imageUrl || null, sortOrder || 0],
+        [name, description || null, imagen_url ?? null, sortOrder || 0],
     );
 
     res.status(201).json({
-        data: { id: result.insertId, name, description, imageUrl, sortOrder },
+        data: {
+            id: result.insertId,
+            name,
+            description: description || null,
+            imagen_url: imagen_url ?? null,
+            sortOrder: sortOrder || 0,
+        },
     });
 });
 
@@ -53,7 +59,7 @@ exports.update = asyncHandler(async (req, res) => {
     const columnMap = {
         name: 'nombre',
         description: 'descripcion',
-        imageUrl: 'imagen_url',
+        imagen_url: 'imagen_url',
         sortOrder: 'orden',
         active: 'activo',
     };
@@ -76,7 +82,9 @@ exports.update = asyncHandler(async (req, res) => {
     values.push(id);
     await db.execute(`UPDATE categorias SET ${setClauses.join(', ')} WHERE id = ?`, values);
 
-    res.json({ message: 'Category updated successfully' });
+    const [rows] = await db.execute(`SELECT ${PUBLIC_SELECT} FROM categorias WHERE id = ?`, [id]);
+
+    res.json({ data: rows[0] || null, message: 'Category updated successfully' });
 });
 
 exports.remove = asyncHandler(async (req, res) => {

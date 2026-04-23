@@ -11,6 +11,7 @@ const registerSchema = z.object({
     email: z.string().email('Email válido requerido'),
     password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(128),
     telefono: z.string().max(20).optional().nullable(),
+    useCookie: z.boolean().optional().default(false),
 });
 
 module.exports = { loginSchema, registerSchema };

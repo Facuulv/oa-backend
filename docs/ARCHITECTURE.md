@@ -7,7 +7,7 @@ Express 4 + MySQL (`mysql2/promise`). Layers: **routes** → **middlewares** (au
 | Path | Role |
 |------|------|
 | `server.js` | App bootstrap, CORS, security headers, route mounts, shutdown |
-| `config/` | Database pool, Cloudinary, shared constants |
+| `config/` | Database pool, shared constants |
 | `middlewares/` | JWT auth, roles, rate limiting, Zod wrappers, errors |
 | `routes/` | HTTP wiring only |
 | `controllers/` | Request/response orchestration and SQL (no ORM in v0) |
@@ -31,5 +31,4 @@ Express 4 + MySQL (`mysql2/promise`). Layers: **routes** → **middlewares** (au
 ## Route notes
 
 - Customer order history: `GET /orders/me` (JWT).
-- Remove product image from CDN: `DELETE /products/image` with JSON `{ "publicId": "..." }`.
-- Upload product image: `POST /products/upload-image` (multipart field `image`).
+- Imágenes de catálogo: el cliente sube a su proveedor (p. ej. Cloudinary) y envía la URL en `imagen_url` en POST/PUT de productos o categorías.

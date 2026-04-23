@@ -19,6 +19,18 @@ CREATE TABLE IF NOT EXISTS usuarios (
     fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS clientes (
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    nombre              VARCHAR(100)    NOT NULL,
+    apellido            VARCHAR(100)    NOT NULL,
+    email               VARCHAR(150)    NOT NULL UNIQUE,
+    telefono            VARCHAR(20)     NULL,
+    password_hash       VARCHAR(255)    NOT NULL,
+    activo              TINYINT(1)      NOT NULL DEFAULT 1,
+    fecha_creacion      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS categorias (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     nombre              VARCHAR(100)    NOT NULL,
@@ -44,7 +56,10 @@ CREATE TABLE IF NOT EXISTS productos (
     orden               INT             NOT NULL DEFAULT 0,
     fecha_creacion      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (categoria_id) REFERENCES categorias(id)
+    FOREIGN KEY (categoria_id) REFERENCES categorias(id),
+    KEY idx_productos_activo (activo),
+    KEY idx_productos_destacado (destacado),
+    KEY idx_productos_nombre (nombre)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS promociones (
@@ -77,6 +92,7 @@ CREATE TABLE IF NOT EXISTS cupones (
 CREATE TABLE IF NOT EXISTS pedidos (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     usuario_id          INT             NULL,
+    cliente_id          INT             NULL,
     cliente_nombre      VARCHAR(100)    NOT NULL,
     cliente_email       VARCHAR(150)    NOT NULL,
     cliente_telefono    VARCHAR(20)     NULL,
@@ -91,7 +107,8 @@ CREATE TABLE IF NOT EXISTS pedidos (
     canal_origen        VARCHAR(50)     NOT NULL DEFAULT 'WEB',
     fecha_creacion      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+    FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS pedidos_detalle (

@@ -2,7 +2,7 @@
 
 API REST del sistema **OA!**, orientada a un local de bebidas. Forma parte de una plataforma que contempla (o contemplará) e-commerce y carrito online, cupones, promociones, puntos, usuarios y autenticación, panel administrativo, y a futuro seguimiento de delivery en tiempo real y otras funcionalidades del negocio.
 
-Este repositorio concentra el **servidor backend** (Node.js + Express + MySQL), la capa de autenticación JWT, validación con Zod, límites de peticiones, integración opcional con **Cloudinary** para imágenes de productos, y rutas públicas y administrativas.
+Este repositorio concentra el **servidor backend** (Node.js + Express + MySQL), autenticación **JWT** (sesión en **cookies httpOnly** y, donde aplica, cabecera `Authorization: Bearer`), validación con Zod, límites de peticiones, persistencia de **URLs de imagen** (`imagen_url` en catálogo), y rutas públicas y administrativas.
 
 ---
 
@@ -16,9 +16,9 @@ El backend expone endpoints en inglés (`/auth`, `/public`, `/admin`, etc.) y pe
 
 ## Funcionalidades principales
 
-- **Autenticación:** registro, login y perfil (`/auth`) con JWT (Bearer).
+- **Autenticación:** registro, **login unificado** (admin o cliente con el mismo endpoint), logout, perfil (`/auth`); sesión en cookies httpOnly separadas para panel (`usuarios`) y tienda (`clientes`).
 - **Usuarios (admin):** CRUD bajo rol administrador (`/users`).
-- **Catálogo (admin):** categorías y productos; subida y borrado de imágenes vía Cloudinary (`/categories`, `/products`).
+- **Catálogo (admin):** categorías y productos; imágenes como URL en `imagen_url` (`/categories`, `/products`, `/admin/categorias`).
 - **Promociones y cupones (admin):** gestión de promociones y cupones; validación pública de cupón (`/promotions`, `/coupons`).
 - **Pedidos:** creación pública de pedidos, validación de cupón en flujo público; historial del cliente autenticado; listado y cambio de estado para admin (`/orders`, `/public/orders`).
 - **Checkout / pagos:** endpoints reservados; la preferencia de pago devuelve **501** (no implementado); webhook de stub que responde **200** (`/public/checkout/*`).
@@ -39,7 +39,7 @@ No hay en este código **WebSockets**, **workers** dedicados, **cron** ni colas 
 | Autenticación | **JWT** (`jsonwebtoken`), contraseñas con **bcryptjs** |
 | Validación | **Zod** |
 | Seguridad / HTTP | **helmet**, **cors**, **compression**, **cookie-parser** |
-| Imágenes | **multer** (memoria) + **Cloudinary** |
+| Imágenes | URLs en BD (`imagen_url`); sin subida en servidor |
 | Tests (herramienta) | **Jest** + **supertest** (configurados en `package.json`) |
 | Desarrollo | **nodemon** |
 
@@ -49,7 +49,7 @@ No hay en este código **WebSockets**, **workers** dedicados, **cron** ni colas 
 
 - **Node.js** 18 o superior.
 - **MySQL** 8 (o compatible) accesible desde la máquina donde corre la API.
-- Cuenta **Cloudinary** (opcional pero necesaria para subir imágenes de productos en producción/desarrollo real de esa funcionalidad).
+- Cuenta en un almacén de imágenes (p. ej. **Cloudinary**) solo en el **cliente** si subís archivos desde el frontend; el backend no sube archivos.
 - Cliente HTTP o frontend (por ejemplo en `http://localhost:3000`) alineado con la configuración **CORS** del servidor.
 
 ---
@@ -95,7 +95,6 @@ No hay en este código **WebSockets**, **workers** dedicados, **cron** ni colas 
 - Escucha en **`0.0.0.0`** y en el puerto definido por **`PORT`** (por defecto **4000**).
 - **CORS:** siempre incluye `http://localhost:3000`; en desarrollo (`NODE_ENV=development`) también permite orígenes que coincidan con `http://localhost:<cualquier_puerto>` y `http://127.0.0.1:<cualquier_puerto>`. Podés añadir más orígenes con `FRONTEND_URL` y `ALLOWED_ORIGINS` (coma-separados).
 - **Límite de cuerpo JSON / urlencoded:** 10 MB.
-- **Imágenes (multer):** hasta 5 MB; tipos permitidos: JPEG, PNG, WebP, GIF.
 
 ---
 
@@ -113,10 +112,6 @@ No hay en este código **WebSockets**, **workers** dedicados, **cron** ni colas 
 | `JWT_SECRET` | Sí | Secreto para firmar y verificar JWT; **mínimo 32 caracteres** o el proceso termina al iniciar. |
 | `FRONTEND_URL` | No | Origen adicional permitido por CORS (ej. URL del frontend en prod). |
 | `ALLOWED_ORIGINS` | No | Lista separada por comas de orígenes extra para CORS. |
-| `CLOUDINARY_CLOUD_NAME` | Para uploads | Nombre de nube Cloudinary. |
-| `CLOUDINARY_API_KEY` | Para uploads | API key. |
-| `CLOUDINARY_API_SECRET` | Para uploads | API secret. |
-| `CLOUDINARY_FOLDER` | No | Carpeta lógica en Cloudinary (default en código: `oa/products`). |
 | `RATE_LIMIT_LOGIN_WINDOW_MS` | No | Ventana (ms) del rate limit de login. |
 | `RATE_LIMIT_LOGIN_MAX` | No | Máximo de intentos en esa ventana (login). |
 | `RATE_LIMIT_API_WINDOW_MS` | No | Ventana (ms) del rate limit general de API. |
@@ -124,6 +119,9 @@ No hay en este código **WebSockets**, **workers** dedicados, **cron** ni colas 
 | `RATE_LIMIT_STRICT_WINDOW_MS` | No | Ventana para rutas con límite estricto (pedidos públicos, checkout). |
 | `RATE_LIMIT_STRICT_MAX` | No | Máximo bajo límite estricto. |
 | `RATE_LIMIT_DEV_LOCALHOST_MAX` | No | Suelo alto de peticiones para IP localhost en desarrollo (mezcla con otros límites). |
+| `ADMIN_SESSION_COOKIE_*` | No | Nombre, `path`, `domain`, `sameSite` de la cookie de sesión admin (JWT httpOnly). Ver `.env.example`. |
+| `CLIENT_SESSION_COOKIE_*` | No | Igual para la cookie de sesión de cliente tienda. |
+| `COOKIE_SECURE` | No | Si es `true`, fuerza cookie `Secure` aunque no sea `production` (útil detrás de HTTPS en staging). |
 
 ---
 
@@ -152,11 +150,7 @@ JWT_SECRET=change_me_min_32_chars_long_secret_key_here!!
 FRONTEND_URL=http://localhost:3000
 ALLOWED_ORIGINS=
 
-# Cloudinary (subida de imágenes de productos)
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-CLOUDINARY_FOLDER=oa/products
+# Cookies de sesión JWT (httpOnly). Opcional: ADMIN_SESSION_COOKIE_NAME, ADMIN_SESSION_COOKIE_SAMESITE (lax|strict|none), path, domain; CLIENT_SESSION_COOKIE_*; COOKIE_SECURE=true
 
 # Rate limiting (opcional; descomentar para override)
 # RATE_LIMIT_LOGIN_WINDOW_MS=900000
@@ -189,9 +183,9 @@ Definidos en `package.json`:
 
 ```
 oa_backend/
-├── config/           # Pool MySQL, JWT (assert), Cloudinary, constantes
+├── config/           # Pool MySQL, JWT (assert), constantes
 ├── controllers/      # Orquestación HTTP y lógica de negocio
-├── middlewares/      # Auth JWT, roles, rate limit, validación Zod, errores
+├── middlewares/      # Sesión JWT (cookies + Bearer), roles, rate limit, Zod, errores
 ├── routes/           # Definición de rutas Express
 ├── services/         # Pagos, notificaciones, pricing (algunos stubs)
 ├── repositories/     # Acceso a datos donde aplica
@@ -211,24 +205,47 @@ Para más detalle de capas y convenciones, ver `docs/ARCHITECTURE.md`.
 
 ---
 
+## Autenticación (`/auth`)
+
+El sistema distingue **dos tablas** de identidad (decisión de dominio): **`usuarios`** (equipo / panel, rol `ADMIN`) y **`clientes`** (cuenta de tienda). El **login es único** desde la perspectiva del usuario: un solo `POST /auth/login` con `email` y `password`; el backend resuelve primero si el email corresponde a un **administrador activo** (`usuarios` + `rol === ADMIN`) y, si no aplica, valida contra **`clientes`**.
+
+| Método y ruta | Descripción |
+|---------------|-------------|
+| `POST /auth/login` | Credenciales unificadas. Respuesta JSON `{ ok, expiresIn, usuario }` **sin token en el cuerpo**. Se fija la cookie de sesión que corresponde: admin (`oa_admin_token` por defecto) o cliente (`oa_client_token` por defecto). Antes se limpian ambas cookies para evitar sesiones cruzadas. |
+| `POST /auth/logout` | Borra **ambas** cookies de sesión (admin y cliente). |
+| `GET /auth/me` | Sesión actual: acepta `Authorization: Bearer`, luego cookie admin, luego cookie cliente. Respuesta `{ ok, usuario }` con campos acotados; `usuario.origen` es `ADMIN` (sesión desde `usuarios`) o `CLIENTE` (desde `clientes`); `usuario.rol` refleja el rol en BD o `CLIENTE` para la tabla clientes. |
+| `POST /auth/register` | Alta en **`clientes`**. Body tipo registro + `useCookie` opcional (default `false`): con `true`, JWT solo en cookie cliente; con `false`, incluye `token` en JSON. |
+| `POST /clientes/register` | **Compatibilidad** con clientes que ya integraron esta ruta; mismo flujo que registro en `clientes`, con `useCookie` por defecto `true`. **Login, logout y “me”** deben usar **`/auth/*`**. |
+
+**Errores habituales (JSON):** credenciales inválidas `401` / `INVALID_CREDENTIALS`; cuenta inactiva admin `403` / `USER_INACTIVE`; cliente inactivo `403` / `CLIENT_INACTIVE`; sin sesión `401` / `NO_SESSION`.
+
+**Frontend:** las peticiones autenticadas por cookie deben ir con **`credentials: 'include'`** (fetch) o equivalente en Axios. CORS del servidor ya usa `credentials: true`.
+
+**Variables de entorno** opcionales para cookies: nombres, `path`, `domain`, `sameSite`, y `COOKIE_SECURE=true` para forzar `Secure` fuera de producción. Ver comentarios en `.env.example`.
+
+**Request autenticado:** los middlewares adjuntan **`req.auth`** (`origen`, `id`, `email`, `rol`, …) y, según el caso, `req.usuario` / `req.cliente` y `req.user` (alias legado interno).
+
+---
+
 ## Módulos o endpoints principales
 
 Prefijo base: raíz del servidor (ej. `http://localhost:4000`). Rutas montadas en `server.js`:
 
 | Prefijo | Audiencia | Resumen |
 |---------|-----------|---------|
-| `/auth` | Pública / usuario | `POST /register`, `POST /login`, `GET /me` (JWT). |
-| `/users` | Admin (JWT + rol) | CRUD de usuarios. |
+| `/auth` | Pública / sesión | `POST /register`, `POST /login`, `POST /logout`, `GET /me` (ver sección anterior). |
+| `/clientes` | Pública | Solo `POST /register` (legado; preferir `/auth/register`). |
+| `/users` | Admin (sesión + rol) | CRUD de usuarios. |
 | `/categories` | Admin | CRUD de categorías. |
-| `/products` | Admin | CRUD de productos; `POST /upload-image` (multipart `image`); `DELETE /image` (JSON con `publicId`). |
+| `/products` | Admin | CRUD de productos; campo opcional `imagen_url` (URL). |
 | `/promotions` | Admin | CRUD de promociones. |
 | `/coupons` | Admin | CRUD de cupones. |
-| `/orders` | Cliente + admin | `GET /me` (JWT cliente); listado y detalle admin; `PATCH /:id/status` (admin). |
-| `/public` | Pública (sin JWT salvo donde indique) | Catálogo: categorías, productos, promociones activas; `POST /coupons/validate`; `POST /orders` (rate limit estricto); `POST /checkout/preference` (501); `POST /checkout/webhook` (stub 200). |
-| `/admin` | Admin | `GET /dashboard`, `GET/PUT /settings`. |
+| `/orders` | Cliente + admin | `GET /me` (historial del cliente autenticado por cookie/Bearer cliente); listado y detalle admin; `PATCH /:id/status` (admin). |
+| `/public` | Pública | Catálogo: categorías, productos, promociones activas; `POST /coupons/validate`; `POST /orders` (si hay cookies de sesión válidas, puede asociar `usuario_id` / `cliente_id` al pedido); `POST /checkout/preference` (501); `POST /checkout/webhook` (stub 200). |
+| `/admin` | Admin | `GET /dashboard`, `GET/PUT /settings`; `GET/POST/PUT/PATCH/DELETE /categorias` (ABM categorías, `imagen_url`). |
 | `/health` | Pública | `GET /` — estado, uptime, memoria, ping a BD. |
 
-**Roles en código:** `ADMIN` y `CLIENTE` (`config/constants.js`). El middleware `requireAdmin` exige rol `ADMIN`.
+**Roles en código:** `ADMIN` y `CLIENTE` (`config/constants.js`). El middleware `requireAdmin` exige rol `ADMIN` en base de datos.
 
 ---
 
@@ -269,9 +286,10 @@ En modo `NODE_ENV=test`, Morgan no se registra (útil si se ejecutan tests con S
 - **Nunca commitear `.env`**; rotar `JWT_SECRET` y credenciales de BD si se filtran.
 - **Helmet** y límites de tamaño de cuerpo reducen superficie de ataque básica.
 - **Rate limiting** en login, API general y rutas sensibles (pedidos/checkout públicos).
-- **JWT** en cabecera `Authorization: Bearer <token>`; expiración de acceso más larga en `development` (2h) que en otros entornos (1h) según `config/constants.js`.
-- **CORS** restrictivo fuera de desarrollo: configurá `FRONTEND_URL` y `ALLOWED_ORIGINS` en producción.
-- Subidas de archivo: tipos y tamaño acotados; almacenamiento en **Cloudinary** (no en disco del servidor).
+- **JWT:** sesión principal en **cookies httpOnly** (`config/authCookie.js`); la cabecera **`Authorization: Bearer`** sigue soportada para APIs o herramientas (mismo secreto `JWT_SECRET`). La expiración del access token es mayor en `development` (2h) que en el resto (1h), alineada con `ACCESS_TOKEN_MAX_AGE_MS` en `config/constants.js`.
+- **Login unificado** no devuelve el token en el cuerpo de la respuesta: reduce riesgo de filtrado por logs del cliente; el frontend debe confiar en la cookie o, si usás Bearer, obtener el token por otro canal solo en flujos que lo requieran.
+- **CORS** restrictivo fuera de desarrollo: configurá `FRONTEND_URL` y `ALLOWED_ORIGINS` en producción; el cliente debe enviar **`credentials: true`** si usa cookies de sesión.
+- Imágenes: el API solo valida y guarda **URLs** (`imagen_url`); no acepta multipart de imágenes en el servidor.
 
 ---
 
@@ -281,8 +299,9 @@ En modo `NODE_ENV=test`, Morgan no se registra (útil si se ejecutan tests con S
 |---------|----------------|
 | El proceso sale al iniciar con error de `JWT_SECRET` | Secreto ausente o con menos de 32 caracteres (`config/jwt.js`). |
 | `Not allowed by CORS` | Origen del navegador no está en la lista; en prod configurá `FRONTEND_URL` / `ALLOWED_ORIGINS`. |
+| Login OK pero rutas siguen 401 | Olvidaste `credentials: 'include'` en el fetch/axios, o dominio/path de cookie no coincide con el del frontend. |
 | Errores de conexión a MySQL | `DB_*` incorrectos, MySQL caído, o base/tabla inexistente. Revisar logs `[DB]`. |
-| Subida de imagen falla | Variables Cloudinary vacías o incorrectas; archivo fuera de tipo/tamaño. |
+| Validación de `imagen_url` | Debe ser URL válida y ≤ 500 caracteres, u omitirse / `null`. |
 | `501` en checkout | Comportamiento esperado: `PaymentService` / preferencia de pago **no implementados**. |
 | Tests no hacen nada útil | Aún no hay suites en el repo; conviene agregar tests bajo convención Jest. |
 
@@ -307,4 +326,4 @@ Proyecto **OA!** — backend mantenido como parte del sistema del local. Para de
 
 ---
 
-*Última revisión del README alineada con el código del repositorio (Express, MySQL, variables de entorno y rutas actuales).*
+*Última revisión del README alineada con el código del repositorio (Express, MySQL, autenticación unificada en `/auth`, cookies de sesión, variables de entorno y rutas actuales).*

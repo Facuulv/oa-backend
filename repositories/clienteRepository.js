@@ -1,6 +1,6 @@
 const db = require('../config/database');
 
-const PUBLIC_FIELDS = 'id, nombre, apellido, email, telefono, rol, activo, fecha_creacion';
+const PUBLIC_FIELDS = 'id, nombre, apellido, email, telefono, activo, fecha_creacion';
 
 const mapRowToPublic = (row) => {
     if (!row) return null;
@@ -10,7 +10,6 @@ const mapRowToPublic = (row) => {
         apellido: row.apellido,
         email: row.email,
         telefono: row.telefono,
-        rol: row.rol,
         activo: Boolean(row.activo),
         fecha_creacion: row.fecha_creacion,
     };
@@ -18,8 +17,8 @@ const mapRowToPublic = (row) => {
 
 const findByEmailWithHash = async (email) => {
     const [rows] = await db.execute(
-        `SELECT id, nombre, apellido, email, telefono, password_hash, rol, activo, fecha_creacion
-         FROM usuarios WHERE email = ? LIMIT 1`,
+        `SELECT id, nombre, apellido, email, telefono, password_hash, activo, fecha_creacion
+         FROM clientes WHERE email = ? LIMIT 1`,
         [email],
     );
     return rows[0] || null;
@@ -27,31 +26,30 @@ const findByEmailWithHash = async (email) => {
 
 const findByIdPublic = async (id) => {
     const [rows] = await db.execute(
-        `SELECT ${PUBLIC_FIELDS} FROM usuarios WHERE id = ? AND activo = 1 LIMIT 1`,
+        `SELECT ${PUBLIC_FIELDS} FROM clientes WHERE id = ? AND activo = 1 LIMIT 1`,
         [id],
     );
     return mapRowToPublic(rows[0]);
 };
 
-/** Fila pública sin filtrar por activo (para validar sesión en middleware). */
 const findByIdForAuth = async (id) => {
     const [rows] = await db.execute(
-        `SELECT ${PUBLIC_FIELDS} FROM usuarios WHERE id = ? LIMIT 1`,
+        `SELECT ${PUBLIC_FIELDS} FROM clientes WHERE id = ? LIMIT 1`,
         [id],
     );
     return rows[0] || null;
 };
 
 const emailExists = async (email) => {
-    const [rows] = await db.execute('SELECT id FROM usuarios WHERE email = ? LIMIT 1', [email]);
+    const [rows] = await db.execute('SELECT id FROM clientes WHERE email = ? LIMIT 1', [email]);
     return rows.length > 0;
 };
 
-const insertUser = async ({ nombre, apellido, email, telefono, passwordHash, rol }) => {
+const insertCliente = async ({ nombre, apellido, email, telefono, passwordHash }) => {
     const [result] = await db.execute(
-        `INSERT INTO usuarios (nombre, apellido, email, telefono, password_hash, rol)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [nombre, apellido, email, telefono || null, passwordHash, rol],
+        `INSERT INTO clientes (nombre, apellido, email, telefono, password_hash)
+         VALUES (?, ?, ?, ?, ?)`,
+        [nombre, apellido, email, telefono || null, passwordHash],
     );
     return result.insertId;
 };
@@ -62,6 +60,6 @@ module.exports = {
     findByIdPublic,
     findByIdForAuth,
     emailExists,
-    insertUser,
+    insertCliente,
     PUBLIC_FIELDS,
 };

@@ -16,9 +16,7 @@ exports.dashboard = asyncHandler(async (_req, res) => {
 
     const [totalProducts] = await db.execute('SELECT COUNT(*) AS count FROM productos WHERE activo = 1');
 
-    const [totalCustomers] = await db.execute(
-        "SELECT COUNT(*) AS count FROM usuarios WHERE rol = 'CLIENTE' AND activo = 1",
-    );
+    const [totalCustomers] = await db.execute('SELECT COUNT(*) AS count FROM clientes WHERE activo = 1');
 
     res.json({
         data: {

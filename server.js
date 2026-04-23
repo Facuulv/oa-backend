@@ -12,9 +12,9 @@ const { notFoundHandler, globalErrorHandler } = require('./middlewares/errorHand
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
+const clientesRoutes = require('./routes/clientesRoutes');
 const usersRoutes = require('./routes/usersRoutes');
 const categoriesRoutes = require('./routes/categoriesRoutes');
-const productsRoutes = require('./routes/productsRoutes');
 const promotionsRoutes = require('./routes/promotionsRoutes');
 const couponsRoutes = require('./routes/couponsRoutes');
 const ordersRoutes = require('./routes/ordersRoutes');
@@ -72,9 +72,9 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Mount routes
 app.use('/auth', authRoutes);
+app.use('/clientes', clientesRoutes);
 app.use('/users', usersRoutes);
 app.use('/categories', categoriesRoutes);
-app.use('/products', productsRoutes);
 app.use('/promotions', promotionsRoutes);
 app.use('/coupons', couponsRoutes);
 app.use('/orders', ordersRoutes);
@@ -86,23 +86,25 @@ app.use('/health', healthRoutes);
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
-const server = app.listen(port, '0.0.0.0', () => {
-    console.log('[oa-api] listening on port', port);
-    console.log('[oa-api] env:', process.env.NODE_ENV || 'development');
-});
-
-const shutdown = (signal) => {
-    console.log(`[oa-api] ${signal} received, shutting down`);
-    server.close(() => {
-        const db = require('./config/database');
-        db.end().then(() => {
-            console.log('[oa-api] server closed');
-            process.exit(0);
-        });
-    });
-};
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
-
 module.exports = app;
+
+if (require.main === module) {
+    const server = app.listen(port, '0.0.0.0', () => {
+        console.log('[oa-api] listening on port', port);
+        console.log('[oa-api] env:', process.env.NODE_ENV || 'development');
+    });
+
+    const shutdown = (signal) => {
+        console.log(`[oa-api] ${signal} received, shutting down`);
+        server.close(() => {
+            const db = require('./config/database');
+            db.end().then(() => {
+                console.log('[oa-api] server closed');
+                process.exit(0);
+            });
+        });
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+}

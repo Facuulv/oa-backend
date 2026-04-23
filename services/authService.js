@@ -1,13 +1,13 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const userRepository = require('../repositories/userRepository');
-const { TOKEN_EXPIRATION } = require('../config/constants');
+const clienteAuthService = require('./clienteAuthService');
+const { TOKEN_EXPIRATION, ROLES, JWT_TOKEN_USE } = require('../config/constants');
 const { AppError } = require('../middlewares/errorHandler');
-
-const BCRYPT_ROUNDS = 10;
 
 const buildTokenPayload = (user) => ({
     id: user.id,
+    tu: JWT_TOKEN_USE.INTERNAL_USER,
     rol: user.rol,
     email: user.email,
     nombre: user.nombre,
@@ -20,42 +20,19 @@ const signAccessToken = (user) =>
         expiresIn: TOKEN_EXPIRATION.access,
     });
 
-const registerCliente = async ({ nombre, apellido, email, password, telefono }) => {
-    const exists = await userRepository.emailExists(email);
-    if (exists) {
-        throw new AppError('El email ya está registrado', 409, 'EMAIL_EXISTS');
+/**
+ * Login unificado (ver `loginUnified`):
+ * 1) `usuarios` con rol ADMIN: valida contraseña; si el email es de un admin, no se consulta `clientes`.
+ * 2) Si no aplica (1), valida contra `clientes`.
+ */
+const tryAdminLoginUnified = async (email, password) => {
+    const row = await userRepository.findByEmailWithHash(email);
+    if (!row || row.rol !== ROLES.ADMIN) {
+        return null;
     }
 
-    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    const id = await userRepository.insertCliente({
-        nombre,
-        apellido,
-        email,
-        telefono,
-        passwordHash,
-    });
-
-    const usuario = await userRepository.findByIdPublic(id);
-    const token = signAccessToken({
-        id: usuario.id,
-        rol: usuario.rol,
-        email: usuario.email,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido,
-    });
-
-    return {
-        token,
-        expiresIn: TOKEN_EXPIRATION.access,
-        usuario,
-    };
-};
-
-const login = async ({ email, password }) => {
-    const row = await userRepository.findByEmailWithHash(email);
-
-    if (!row || !row.activo) {
-        throw new AppError('Credenciales inválidas', 401, 'INVALID_CREDENTIALS');
+    if (!row.activo || Number(row.activo) === 0) {
+        throw new AppError('Cuenta inactiva', 403, 'USER_INACTIVE');
     }
 
     const ok = await bcrypt.compare(password, row.password_hash);
@@ -71,12 +48,38 @@ const login = async ({ email, password }) => {
         apellido: row.apellido,
     };
 
-    const token = signAccessToken(userForToken);
-
+    const usuario = userRepository.mapRowToPublic(row);
     return {
-        token,
+        accessToken: signAccessToken(userForToken),
         expiresIn: TOKEN_EXPIRATION.access,
-        usuario: userRepository.mapRowToPublic(row),
+        usuario: { ...usuario, origen: 'ADMIN' },
+        sessionKind: 'admin',
+    };
+};
+
+const loginUnified = async ({ email, password }) => {
+    const adminResult = await tryAdminLoginUnified(email, password);
+    if (adminResult) {
+        return adminResult;
+    }
+
+    const clientResult = await clienteAuthService.loginCliente({ email, password });
+    const c = clientResult.cliente;
+    return {
+        accessToken: clientResult.token,
+        expiresIn: clientResult.expiresIn,
+        usuario: {
+            id: c.id,
+            nombre: c.nombre,
+            apellido: c.apellido,
+            email: c.email,
+            telefono: c.telefono,
+            activo: c.activo,
+            fecha_creacion: c.fecha_creacion,
+            rol: ROLES.CLIENTE,
+            origen: 'CLIENTE',
+        },
+        sessionKind: 'client',
     };
 };
 
@@ -89,8 +92,7 @@ const getMe = async (userId) => {
 };
 
 module.exports = {
-    registerCliente,
-    login,
+    loginUnified,
     getMe,
     signAccessToken,
 };

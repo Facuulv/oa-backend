@@ -7,6 +7,7 @@ const couponsController = require('../controllers/couponsController');
 const ordersController = require('../controllers/ordersController');
 const checkoutController = require('../controllers/checkoutController');
 const { apiRateLimiter, strictRateLimiter } = require('../middlewares/rateLimit');
+const { optionalAuthenticateSession } = require('../middlewares/auth');
 const { validate, validateParams } = require('../middlewares/validate');
 const { createOrderSchema } = require('../validators/ordersValidators');
 const { validateCouponSchema } = require('../validators/couponsValidators');
@@ -18,7 +19,13 @@ router.get('/products', apiRateLimiter, productsController.list);
 router.get('/products/:id', apiRateLimiter, validateParams(idParamSchema), productsController.getById);
 router.get('/promotions', apiRateLimiter, promotionsController.listActive);
 router.post('/coupons/validate', apiRateLimiter, validate(validateCouponSchema), couponsController.validateCoupon);
-router.post('/orders', strictRateLimiter, validate(createOrderSchema), ordersController.create);
+router.post(
+    '/orders',
+    strictRateLimiter,
+    optionalAuthenticateSession,
+    validate(createOrderSchema),
+    ordersController.create,
+);
 router.post('/checkout/preference', strictRateLimiter, checkoutController.createPreference);
 router.post('/checkout/webhook', checkoutController.webhook);
 
