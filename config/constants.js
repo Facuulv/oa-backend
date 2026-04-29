@@ -1,8 +1,13 @@
 module.exports = {
     ROLES: {
         ADMIN: 'ADMIN',
+        ENCARGADO: 'ENCARGADO',
+        VENDEDOR: 'VENDEDOR',
         CLIENTE: 'CLIENTE',
     },
+
+    /** Roles de `usuarios` que pueden iniciar sesión en el panel (misma cookie/JWT interno). */
+    USUARIOS_PANEL_LOGIN_ROLES: ['ADMIN', 'ENCARGADO', 'VENDEDOR'],
 
     /** Discriminador en el JWT para no mezclar sesión interna (`usuarios`) con clientes de tienda (`clientes`). */
     JWT_TOKEN_USE: {
@@ -22,6 +27,12 @@ module.exports = {
         PERCENTAGE: 'PERCENTAGE',
         FIXED: 'FIXED',
         BUY_X_GET_Y: 'BUY_X_GET_Y',
+    },
+
+    /** Discriminador en `productos`: ítem de catálogo vs combo/promo vendible. */
+    TIPO_PRODUCTO: {
+        PRODUCTO: 'PRODUCTO',
+        PROMOCION: 'PROMOCION',
     },
 
     /** Default sales tax rate (e.g. 0.21 = 21%). Override via settings when implemented. */

@@ -10,13 +10,15 @@ CREATE TABLE IF NOT EXISTS usuarios (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     nombre              VARCHAR(100)    NOT NULL,
     apellido            VARCHAR(100)    NOT NULL,
+    dni                 VARCHAR(32)     NULL,
     email               VARCHAR(150)    NOT NULL UNIQUE,
     telefono            VARCHAR(20)     NULL,
     password_hash       VARCHAR(255)    NOT NULL,
-    rol                 ENUM('ADMIN','CLIENTE') NOT NULL DEFAULT 'CLIENTE',
+    rol                 ENUM('ADMIN','ENCARGADO','VENDEDOR','CLIENTE') NOT NULL DEFAULT 'VENDEDOR',
     activo              TINYINT(1)      NOT NULL DEFAULT 1,
     fecha_creacion      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+    fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_usuarios_dni (dni)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS clientes (
@@ -54,12 +56,29 @@ CREATE TABLE IF NOT EXISTS productos (
     disponible          TINYINT(1)      NOT NULL DEFAULT 1,
     activo              TINYINT(1)      NOT NULL DEFAULT 1,
     orden               INT             NOT NULL DEFAULT 0,
+    tipo_producto       ENUM('PRODUCTO', 'PROMOCION') NOT NULL DEFAULT 'PRODUCTO',
     fecha_creacion      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (categoria_id) REFERENCES categorias(id),
     KEY idx_productos_activo (activo),
     KEY idx_productos_destacado (destacado),
-    KEY idx_productos_nombre (nombre)
+    KEY idx_productos_nombre (nombre),
+    KEY idx_productos_tipo_producto (tipo_producto)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS productos_componentes (
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    producto_padre_id   INT             NOT NULL,
+    producto_hijo_id    INT             NOT NULL,
+    cantidad            INT             NOT NULL,
+    fecha_creacion      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_pc_padre FOREIGN KEY (producto_padre_id) REFERENCES productos(id) ON DELETE CASCADE,
+    CONSTRAINT fk_pc_hijo FOREIGN KEY (producto_hijo_id) REFERENCES productos(id) ON DELETE RESTRICT,
+    CONSTRAINT chk_pc_no_self CHECK (producto_padre_id <> producto_hijo_id),
+    CONSTRAINT chk_pc_cantidad_pos CHECK (cantidad > 0),
+    UNIQUE KEY uk_pc_padre_hijo (producto_padre_id, producto_hijo_id),
+    KEY idx_pc_padre (producto_padre_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS promociones (

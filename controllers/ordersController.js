@@ -4,6 +4,10 @@ const { AppError } = require('../middlewares/errorHandler');
 const { ORDER_STATUS } = require('../config/constants');
 const couponRepository = require('../repositories/couponRepository');
 const { computeDiscountAmount, resolveTipoEntrega, resolveCanalOrigen } = require('../utils/orderHelpers');
+const {
+    verificarStockSuficienteParaVenta,
+    descontarStockVenta,
+} = require('../services/productoStockVentaService');
 
 const ORDER_LIST_SELECT = `o.id,
         o.usuario_id AS user_id,
@@ -95,7 +99,7 @@ exports.create = asyncHandler(async (req, res) => {
         const productIds = [...new Set(data.items.map((i) => i.productId))];
         const placeholders = productIds.map(() => '?').join(',');
         const [productRows] = await connection.execute(
-            `SELECT id, nombre, precio, stock FROM productos WHERE id IN (${placeholders}) AND activo = 1`,
+            `SELECT id, nombre, precio FROM productos WHERE id IN (${placeholders}) AND activo = 1`,
             productIds,
         );
         const productMap = new Map(productRows.map((p) => [p.id, p]));
@@ -109,10 +113,9 @@ exports.create = asyncHandler(async (req, res) => {
         for (const item of data.items) {
             qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) || 0) + item.quantity);
         }
-        for (const [pid, qty] of qtyByProduct) {
-            if (Number(productMap.get(pid).stock) < qty) {
-                throw new AppError('Stock insuficiente', 409, 'INSUFFICIENT_STOCK');
-            }
+        const sortedProductIds = [...qtyByProduct.keys()].sort((a, b) => a - b);
+        for (const pid of sortedProductIds) {
+            await verificarStockSuficienteParaVenta(connection, pid, qtyByProduct.get(pid));
         }
 
         const subtotal = Math.round(
@@ -181,16 +184,13 @@ exports.create = asyncHandler(async (req, res) => {
 
         const orderId = orderResult.insertId;
 
+        for (const pid of sortedProductIds) {
+            await descontarStockVenta(connection, pid, qtyByProduct.get(pid));
+        }
+
         for (const item of data.items) {
             const prod = productMap.get(item.productId);
             const lineSubtotal = Math.round(item.unitPrice * item.quantity * 100) / 100;
-            const [upd] = await connection.execute(
-                'UPDATE productos SET stock = stock - ? WHERE id = ? AND stock >= ?',
-                [item.quantity, item.productId, item.quantity],
-            );
-            if (upd.affectedRows === 0) {
-                throw new AppError('Stock insuficiente', 409, 'INSUFFICIENT_STOCK');
-            }
             await connection.execute(
                 `INSERT INTO pedidos_detalle
                  (pedido_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal, observaciones)

@@ -15,10 +15,12 @@ const mapUsuarioMe = (u) => ({
     email: u.email,
     nombre: u.nombre,
     apellido: u.apellido,
+    dni: u.dni ?? null,
     rol: u.rol,
     telefono: u.telefono,
     activo: u.activo,
     fecha_creacion: u.fecha_creacion,
+    fecha_modificacion: u.fecha_modificacion ?? null,
     origen: 'ADMIN',
 });
 
@@ -61,7 +63,7 @@ exports.register = asyncHandler(async (req, res) => {
 });
 
 /**
- * Login unificado: misma credencial contra `usuarios` (solo ADMIN) o `clientes`.
+ * Login unificado: misma credencial contra `usuarios` (personal de panel: ADMIN, ENCARGADO, VENDEDOR) o `clientes`.
  * JWT solo en cookie httpOnly; el cuerpo no incluye el token.
  */
 exports.login = asyncHandler(async (req, res) => {

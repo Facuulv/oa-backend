@@ -121,6 +121,16 @@ const listadoOrdenar = z.preprocess((v) => {
     return ORDENAR_ADMIN.includes(raw) ? raw : 'orden_asc';
 }, z.enum(ORDENAR_ADMIN));
 
+const tipoProductoFiltroAdmin = z.preprocess((v) => {
+    if (v === undefined || v === null || v === '') return 'PRODUCTO';
+    if (typeof v !== 'string') return v;
+    const t = v.trim().toUpperCase();
+    if (t === 'TODOS' || t === 'ALL') return 'todos';
+    if (t === 'PRODUCTO') return 'PRODUCTO';
+    if (t === 'PROMOCION') return 'PROMOCION';
+    return v;
+}, z.enum(['PRODUCTO', 'PROMOCION', 'todos']));
+
 const listadoProductosQuerySchema = z.object({
     busqueda: z.preprocess((v) => {
         if (v === undefined || v === null || v === '') return undefined;
@@ -130,6 +140,7 @@ const listadoProductosQuerySchema = z.object({
         if (v === undefined || v === '' || v === null) return undefined;
         return v;
     }, z.coerce.number().int().positive().optional()),
+    tipo_producto: tipoProductoFiltroAdmin,
     activo: queryFiltroBooleano,
     destacado: queryFiltroBooleano,
     disponible: queryFiltroBooleano,
@@ -194,6 +205,7 @@ const actualizarEstadoProductoSchema = z.object({
 
 module.exports = {
     productoIdParamSchema,
+    tipoProductoFiltroAdmin,
     listadoProductosQuerySchema,
     crearProductoSchema,
     actualizarProductoSchema,

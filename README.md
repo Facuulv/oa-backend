@@ -207,7 +207,7 @@ Para más detalle de capas y convenciones, ver `docs/ARCHITECTURE.md`.
 
 ## Autenticación (`/auth`)
 
-El sistema distingue **dos tablas** de identidad (decisión de dominio): **`usuarios`** (equipo / panel, rol `ADMIN`) y **`clientes`** (cuenta de tienda). El **login es único** desde la perspectiva del usuario: un solo `POST /auth/login` con `email` y `password`; el backend resuelve primero si el email corresponde a un **administrador activo** (`usuarios` + `rol === ADMIN`) y, si no aplica, valida contra **`clientes`**.
+El sistema distingue **dos tablas** de identidad (decisión de dominio): **`usuarios`** (equipo / panel, roles `ADMIN`, `ENCARGADO` o `VENDEDOR`) y **`clientes`** (cuenta de tienda). El **login es único** desde la perspectiva del usuario: un solo `POST /auth/login` con `email` y `password`; el backend resuelve primero si el email corresponde a un **usuario de panel activo** (`usuarios` + rol en `ADMIN` / `ENCARGADO` / `VENDEDOR`) y, si no aplica, valida contra **`clientes`**.
 
 | Método y ruta | Descripción |
 |---------------|-------------|
@@ -235,7 +235,7 @@ Prefijo base: raíz del servidor (ej. `http://localhost:4000`). Rutas montadas e
 |---------|-----------|---------|
 | `/auth` | Pública / sesión | `POST /register`, `POST /login`, `POST /logout`, `GET /me` (ver sección anterior). |
 | `/clientes` | Pública | Solo `POST /register` (legado; preferir `/auth/register`). |
-| `/users` | Admin (sesión + rol) | CRUD de usuarios. |
+| `/users` | Solo `ADMIN` (sesión interna + rol) | ABM de usuarios del panel (ver tabla siguiente). |
 | `/categories` | Admin | CRUD de categorías. |
 | `/products` | Admin | CRUD de productos; campo opcional `imagen_url` (URL). |
 | `/promotions` | Admin | CRUD de promociones. |
@@ -245,7 +245,24 @@ Prefijo base: raíz del servidor (ej. `http://localhost:4000`). Rutas montadas e
 | `/admin` | Admin | `GET /dashboard`, `GET/PUT /settings`; `GET/POST/PUT/PATCH/DELETE /categorias` (ABM categorías, `imagen_url`). |
 | `/health` | Pública | `GET /` — estado, uptime, memoria, ping a BD. |
 
-**Roles en código:** `ADMIN` y `CLIENTE` (`config/constants.js`). El middleware `requireAdmin` exige rol `ADMIN` en base de datos.
+**Roles en código:** en `usuarios`, `ADMIN`, `ENCARGADO`, `VENDEDOR` (panel) y opcionalmente `CLIENTE` si existiera legado en esa tabla; en tienda, `CLIENTE` en `clientes`. El middleware `requireAdmin` exige rol **`ADMIN`** en base de datos (gestión de `/users`, categorías, pedidos admin, etc.).
+
+### ABM usuarios (`/users`)
+
+Requiere sesión de panel (`authenticateUsuario` + cookie o `Authorization: Bearer`) y **`rol === ADMIN`**. Nunca se devuelve `password_hash`. El login del panel es por **email**; el campo `username` en base de datos no se usa en la API (puede quedar `NULL` si la columna existe; ver migración `006_usuarios_staff_panel.sql`).
+
+| Método y ruta | Descripción |
+|---------------|-------------|
+| `GET /users` | Listado paginado. Query: `page`, `limit` (máx. 100), `q` (busca en nombre, apellido, email, dni, teléfono), `rol` (`ADMIN` \| `ENCARGADO` \| `VENDEDOR`), `activo` (`0` \| `1`). Orden: `fecha_creacion` descendente. Respuesta `{ ok, data, pagination }`. |
+| `GET /users/:id` | Detalle por id. `{ ok, data }`. |
+| `POST /users` | Alta. Body: `nombre`, `apellido`, `email`, `password`, `rol`, `telefono` opcional, `dni` opcional. `activo` queda en `true`. Email único; DNI único si se informa. |
+| `PUT /users/:id` | Edición. Body parcial: `nombre`, `apellido`, `dni`, `email`, `telefono`, `rol`, `activo`. No cambia contraseña. Email/DNI únicos salvo el propio registro. |
+| `PATCH /users/:id/password` | Cambio de contraseña. Body: `{ "password": "..." }` (mín. 6 caracteres). Respuesta `{ ok, data }` con el usuario sin hash. |
+| `DELETE /users/:id` | Desactiva (`activo = 0`), mismas reglas de negocio que `PUT` con `activo: false`. |
+
+**Reglas de negocio:** no se puede desactivar a sí mismo; no se puede desactivar ni degradar de `ADMIN` al **único** administrador **activo** restante (códigos `SELF_DEACTIVATE_FORBIDDEN`, `LAST_ACTIVE_ADMIN_DEACTIVATE`, `LAST_ACTIVE_ADMIN_ROLE`).
+
+**Base de datos:** instalar o alinear columnas/roles con `scripts/migrations/006_usuarios_staff_panel.sql` (y `scripts/schema.sql` en entornos nuevos).
 
 ---
 

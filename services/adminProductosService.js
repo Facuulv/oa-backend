@@ -15,6 +15,7 @@ const mapFila = (fila) => {
         descripcion: fila.descripcion,
         precio: Number(fila.precio),
         categoria_id: fila.categoria_id,
+        tipo_producto: fila.tipo_producto ?? 'PRODUCTO',
         categoria:
             fila.categoria_nombre != null
                 ? {
@@ -44,9 +45,9 @@ const ejecutarConMapaMysql = async (fn) => {
     }
 };
 
-const asegurarExiste = async (id) => {
+const asegurarExisteProductoNormal = async (id) => {
     const fila = await productoRepository.buscarPorIdAdmin(id);
-    if (!fila) {
+    if (!fila || fila.tipo_producto !== 'PRODUCTO') {
         throw new AppError('Producto no encontrado', 404, 'PRODUCTO_NO_ENCONTRADO');
     }
     return fila;
@@ -77,6 +78,7 @@ const listar = async (query) => {
     const filters = {
         busqueda: query.busqueda,
         categoria_id: query.categoria_id,
+        tipo_producto: query.tipo_producto,
         activo: query.activo,
         destacado: query.destacado,
         disponible: query.disponible,
@@ -103,7 +105,7 @@ const listar = async (query) => {
 
 const obtenerPorId = async (id) => {
     const fila = await productoRepository.buscarPorIdAdmin(id);
-    if (!fila) {
+    if (!fila || fila.tipo_producto !== 'PRODUCTO') {
         throw new AppError('Producto no encontrado', 404, 'PRODUCTO_NO_ENCONTRADO');
     }
     return mapFila(fila);
@@ -143,7 +145,7 @@ const crear = async (datos) => {
 };
 
 const actualizar = async (id, campos) => {
-    await asegurarExiste(id);
+    await asegurarExisteProductoNormal(id);
 
     if (Object.prototype.hasOwnProperty.call(campos, 'categoria_id')) {
         await asegurarCategoria(campos.categoria_id, { requiereActiva: true });
@@ -152,7 +154,7 @@ const actualizar = async (id, campos) => {
     const afectadas = await ejecutarConMapaMysql(() => productoRepository.actualizar(id, campos));
     if (afectadas === 0) {
         const existe = await productoRepository.buscarPorIdAdmin(id);
-        if (!existe) {
+        if (!existe || existe.tipo_producto !== 'PRODUCTO') {
             throw new AppError('Producto no encontrado', 404, 'PRODUCTO_NO_ENCONTRADO');
         }
         throw new AppError('No hay campos válidos para actualizar', 400, 'SIN_CAMPOS_ACTUALIZACION');
@@ -161,7 +163,7 @@ const actualizar = async (id, campos) => {
 };
 
 const actualizarEstado = async (id, activo) => {
-    await asegurarExiste(id);
+    await asegurarExisteProductoNormal(id);
     const afectadas = await ejecutarConMapaMysql(() => productoRepository.actualizarActivo(id, activo));
     if (afectadas === 0) {
         throw new AppError('Producto no encontrado', 404, 'PRODUCTO_NO_ENCONTRADO');
@@ -170,7 +172,7 @@ const actualizarEstado = async (id, activo) => {
 };
 
 const desactivar = async (id) => {
-    await asegurarExiste(id);
+    await asegurarExisteProductoNormal(id);
     await ejecutarConMapaMysql(() => productoRepository.desactivar(id));
     const fila = await productoRepository.buscarPorIdAdmin(id);
     return {
@@ -186,4 +188,5 @@ module.exports = {
     actualizar,
     actualizarEstado,
     desactivar,
+    mapProductoAdminRow: mapFila,
 };

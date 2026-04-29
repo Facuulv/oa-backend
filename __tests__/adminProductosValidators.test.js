@@ -67,6 +67,13 @@ describe('adminProductosValidators', () => {
             expect(out.page).toBe(1);
             expect(out.limit).toBe(20);
             expect(out.ordenar).toBe('orden_asc');
+            expect(out.tipo_producto).toBe('PRODUCTO');
+        });
+
+        it('permite filtrar por tipo_producto o listar todos', () => {
+            expect(listadoProductosQuerySchema.parse({ tipo_producto: 'PROMOCION' }).tipo_producto).toBe('PROMOCION');
+            expect(listadoProductosQuerySchema.parse({ tipo_producto: 'todos' }).tipo_producto).toBe('todos');
+            expect(listadoProductosQuerySchema.parse({ tipo_producto: 'ALL' }).tipo_producto).toBe('todos');
         });
 
         it('parsea filtros booleanos desde query string', () => {

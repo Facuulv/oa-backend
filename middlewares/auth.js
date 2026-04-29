@@ -337,7 +337,12 @@ const roleMiddleware = (roles) => [authenticateUsuario, authorizeRole(roles)];
 
 const authorizeAdmin = authorizeRole([ROLES.ADMIN]);
 
+const authorizeAdminOrEncargado = authorizeRole([ROLES.ADMIN, ROLES.ENCARGADO]);
+
 const requireAdmin = [authenticateUsuario, authorizeAdmin];
+
+/** Catálogo admin (categorías, productos, promos): ADMIN o ENCARGADO. */
+const requireAdminOrEncargado = [authenticateUsuario, authorizeAdminOrEncargado];
 
 const requireCliente = [authenticateCliente];
 
@@ -354,7 +359,9 @@ module.exports = {
     authMiddleware,
     authorizeRole,
     authorizeAdmin,
+    authorizeAdminOrEncargado,
     roleMiddleware,
     requireAdmin,
+    requireAdminOrEncargado,
     requireCliente,
 };

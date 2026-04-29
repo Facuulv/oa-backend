@@ -1,6 +1,30 @@
 const asyncHandler = require('../utils/asyncHandler');
 const { AppError } = require('../middlewares/errorHandler');
 const productoRepository = require('../repositories/productoRepository');
+const { TIPO_PRODUCTO } = require('../config/constants');
+const { mapaDisponibilidadPorPromoIds } = require('../services/productoStockVentaService');
+
+const enrichPublicProductsWithPromoStock = async (rows) => {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        return rows;
+    }
+    const promoIds = rows.filter((p) => p.product_type === TIPO_PRODUCTO.PROMOCION).map((p) => p.id);
+    if (promoIds.length === 0) {
+        return rows;
+    }
+    const dispMap = await mapaDisponibilidadPorPromoIds(promoIds, null);
+    return rows.map((p) => {
+        if (p.product_type !== TIPO_PRODUCTO.PROMOCION) {
+            return p;
+        }
+        const d = dispMap.get(p.id) ?? { maxVendible: 0, disponibleParaVenta: false };
+        return {
+            ...p,
+            estimated_availability: d.maxVendible,
+            available_by_component_stock: d.disponibleParaVenta,
+        };
+    });
+};
 
 exports.list = asyncHandler(async (req, res) => {
     const { categoryId, featured, search } = req.query;
@@ -20,7 +44,7 @@ exports.list = asyncHandler(async (req, res) => {
     ]);
 
     res.json({
-        data: products,
+        data: await enrichPublicProductsWithPromoStock(products),
         pagination: { page, limit, total },
     });
 });
@@ -34,5 +58,6 @@ exports.getById = asyncHandler(async (req, res) => {
         throw new AppError('Product not found', 404, 'PRODUCT_NOT_FOUND');
     }
 
-    res.json({ data: product });
+    const [enriched] = await enrichPublicProductsWithPromoStock([product]);
+    res.json({ data: enriched });
 });

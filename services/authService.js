@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const userRepository = require('../repositories/userRepository');
 const clienteAuthService = require('./clienteAuthService');
-const { TOKEN_EXPIRATION, ROLES, JWT_TOKEN_USE } = require('../config/constants');
+const { TOKEN_EXPIRATION, ROLES, JWT_TOKEN_USE, USUARIOS_PANEL_LOGIN_ROLES } = require('../config/constants');
 const { AppError } = require('../middlewares/errorHandler');
 
 const buildTokenPayload = (user) => ({
@@ -22,12 +22,12 @@ const signAccessToken = (user) =>
 
 /**
  * Login unificado (ver `loginUnified`):
- * 1) `usuarios` con rol ADMIN: valida contraseña; si el email es de un admin, no se consulta `clientes`.
+ * 1) `usuarios` con rol de panel (ADMIN / ENCARGADO / VENDEDOR): valida contraseña; si aplica, no se consulta `clientes`.
  * 2) Si no aplica (1), valida contra `clientes`.
  */
 const tryAdminLoginUnified = async (email, password) => {
     const row = await userRepository.findByEmailWithHash(email);
-    if (!row || row.rol !== ROLES.ADMIN) {
+    if (!row || !USUARIOS_PANEL_LOGIN_ROLES.includes(row.rol)) {
         return null;
     }
 

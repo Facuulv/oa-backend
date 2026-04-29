@@ -23,6 +23,7 @@ const COLUMNAS_ADMIN = `p.id,
     p.disponible,
     p.activo,
     p.orden,
+    p.tipo_producto,
     p.fecha_creacion,
     p.fecha_modificacion,
     c.nombre AS categoria_nombre,
@@ -39,6 +40,7 @@ const COLUMNAS_PUBLIC = `p.id,
     p.disponible AS available,
     p.activo AS active,
     p.orden AS sort_order,
+    p.tipo_producto AS product_type,
     p.fecha_creacion AS created_at,
     p.fecha_modificacion AS updated_at,
     c.nombre AS category_name`;
@@ -62,6 +64,7 @@ const SORT_SQL = {
  * @param {boolean} [filters.destacado]
  * @param {boolean} [filters.disponible]
  * @param {string} [filters.ordenar]
+ * @param {'PRODUCTO'|'PROMOCION'|'todos'|null|undefined} [filters.tipo_producto]
  * @param {number} limit
  * @param {number} offset
  * @returns {Promise<{ where: string, params: unknown[] }>}
@@ -69,6 +72,11 @@ const SORT_SQL = {
 const buildAdminListClause = (filters) => {
     const params = [];
     let where = 'WHERE 1=1';
+
+    if (filters.tipo_producto != null && filters.tipo_producto !== 'todos') {
+        where += ' AND p.tipo_producto = ?';
+        params.push(filters.tipo_producto);
+    }
 
     if (filters.busqueda) {
         where += ' AND p.nombre LIKE ?';
@@ -241,23 +249,31 @@ const buscarPublicoPorId = async (id) => {
  * }} datos
  * @returns {Promise<number>}
  */
-const crear = async ({
-    categoria_id,
-    nombre,
-    descripcion = null,
-    precio,
-    stock,
-    imagen_url = null,
-    destacado = false,
-    disponible = true,
-    activo = true,
-    orden = 0,
-}) => {
-    const [result] = await db.execute(
+/**
+ * @param {import('mysql2/promise').PoolConnection|null} [connection]
+ */
+const crear = async (
+    {
+        categoria_id,
+        nombre,
+        descripcion = null,
+        precio,
+        stock,
+        imagen_url = null,
+        destacado = false,
+        disponible = true,
+        activo = true,
+        orden = 0,
+        tipo_producto = 'PRODUCTO',
+    },
+    connection = null,
+) => {
+    const exec = connection ? (q, p) => connection.execute(q, p) : (q, p) => db.execute(q, p);
+    const [result] = await exec(
         `INSERT INTO productos (
             categoria_id, nombre, descripcion, precio, stock,
-            imagen_url, destacado, disponible, activo, orden
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            imagen_url, destacado, disponible, activo, orden, tipo_producto
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             categoria_id,
             nombre,
@@ -269,6 +285,7 @@ const crear = async ({
             disponible ? 1 : 0,
             activo ? 1 : 0,
             orden,
+            tipo_producto,
         ],
     );
     return result.insertId;
@@ -277,9 +294,10 @@ const crear = async ({
 /**
  * @param {number} id
  * @param {Record<string, unknown>} campos claves en español / snake_case de BD
+ * @param {import('mysql2/promise').PoolConnection|null} [connection]
  * @returns {Promise<number>}
  */
-const actualizar = async (id, campos) => {
+const actualizar = async (id, campos, connection = null) => {
     const permitidos = [
         'categoria_id',
         'nombre',
@@ -313,7 +331,8 @@ const actualizar = async (id, campos) => {
 
     setClauses.push('fecha_modificacion = CURRENT_TIMESTAMP');
     values.push(id);
-    const [result] = await db.execute(`UPDATE productos SET ${setClauses.join(', ')} WHERE id = ?`, values);
+    const exec = connection ? (q, p) => connection.execute(q, p) : (q, p) => db.execute(q, p);
+    const [result] = await exec(`UPDATE productos SET ${setClauses.join(', ')} WHERE id = ?`, values);
     return result.affectedRows ?? 0;
 };
 
@@ -322,8 +341,12 @@ const actualizar = async (id, campos) => {
  * @param {boolean} activo
  * @returns {Promise<number>}
  */
-const actualizarActivo = async (id, activo) => {
-    const [result] = await db.execute(
+/**
+ * @param {import('mysql2/promise').PoolConnection|null} [connection]
+ */
+const actualizarActivo = async (id, activo, connection = null) => {
+    const exec = connection ? (q, p) => connection.execute(q, p) : (q, p) => db.execute(q, p);
+    const [result] = await exec(
         'UPDATE productos SET activo = ?, fecha_modificacion = CURRENT_TIMESTAMP WHERE id = ?',
         [activo ? 1 : 0, id],
     );
