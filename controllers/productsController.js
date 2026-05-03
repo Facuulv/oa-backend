@@ -27,14 +27,22 @@ const enrichPublicProductsWithPromoStock = async (rows) => {
 };
 
 exports.list = asyncHandler(async (req, res) => {
-    const { categoryId, featured, search } = req.query;
+    const { search } = req.query;
+    const categoryId = req.query.categoria_id ?? req.query.categoryId;
+    const destacadoRaw = req.query.destacado ?? req.query.featured;
     const page = parseInt(req.query.page, 10) || 1;
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const offset = (page - 1) * limit;
 
+    const destacado =
+        destacadoRaw === true ||
+        destacadoRaw === 1 ||
+        destacadoRaw === '1' ||
+        (typeof destacadoRaw === 'string' && destacadoRaw.toLowerCase() === 'true');
+
     const filters = {
         categoryId: categoryId || undefined,
-        featured: featured === 'true' || featured === true,
+        featured: destacadoRaw == null ? undefined : destacado,
         search: search || undefined,
     };
 

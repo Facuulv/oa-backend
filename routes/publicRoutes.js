@@ -15,8 +15,8 @@ const { idParamSchema } = require('../validators/common');
 
 router.get('/categories', apiRateLimiter, categoriesController.list);
 router.get('/categories/:id', apiRateLimiter, validateParams(idParamSchema), categoriesController.getById);
-router.get('/products', apiRateLimiter, productsController.list);
-router.get('/products/:id', apiRateLimiter, validateParams(idParamSchema), productsController.getById);
+router.get('/productos', apiRateLimiter, productsController.list);
+router.get('/productos/:id', apiRateLimiter, validateParams(idParamSchema), productsController.getById);
 router.get('/promotions', apiRateLimiter, promotionsController.listActive);
 router.post('/coupons/validate', apiRateLimiter, validate(validateCouponSchema), couponsController.validateCoupon);
 router.post(

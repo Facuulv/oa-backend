@@ -1,7 +1,7 @@
 const { ACCESS_TOKEN_MAX_AGE_MS } = require('./constants');
 
 const adminSessionCookieName = () =>
-    process.env.ADMIN_SESSION_COOKIE_NAME || 'oa_admin_token';
+    process.env.ADMIN_COOKIES_SESSION || process.env.ADMIN_SESSION_COOKIE_NAME || 'oa_admin_token';
 
 const parseSameSite = () => {
     const raw = (process.env.ADMIN_SESSION_COOKIE_SAMESITE || 'lax').toLowerCase();
@@ -38,7 +38,7 @@ const clearAdminSessionCookie = (res) => {
 };
 
 const clientSessionCookieName = () =>
-    process.env.CLIENT_SESSION_COOKIE_NAME || 'oa_client_token';
+    process.env.CLIENTES_COOKIES_SESSION || process.env.CLIENT_SESSION_COOKIE_NAME || 'oa_client_token';
 
 const clientSessionCookieBase = () => {
     const isProd = process.env.NODE_ENV === 'production';

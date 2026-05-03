@@ -18,7 +18,7 @@ El backend expone endpoints en inglés (`/auth`, `/public`, `/admin`, etc.) y pe
 
 - **Autenticación:** registro, **login unificado** (admin o cliente con el mismo endpoint), logout, perfil (`/auth`); sesión en cookies httpOnly separadas para panel (`usuarios`) y tienda (`clientes`).
 - **Usuarios (admin):** CRUD bajo rol administrador (`/users`).
-- **Catálogo (admin):** categorías y productos; imágenes como URL en `imagen_url` (`/categories`, `/products`, `/admin/categorias`).
+- **Catálogo (admin):** categorías y productos; imágenes como URL en `imagen_url` (`/categories`, `/admin/productos`, `/admin/categorias`).
 - **Promociones y cupones (admin):** gestión de promociones y cupones; validación pública de cupón (`/promotions`, `/coupons`).
 - **Pedidos:** creación pública de pedidos, validación de cupón en flujo público; historial del cliente autenticado; listado y cambio de estado para admin (`/orders`, `/public/orders`).
 - **Checkout / pagos:** endpoints reservados; la preferencia de pago devuelve **501** (no implementado); webhook de stub que responde **200** (`/public/checkout/*`).
@@ -237,7 +237,7 @@ Prefijo base: raíz del servidor (ej. `http://localhost:4000`). Rutas montadas e
 | `/clientes` | Pública | Solo `POST /register` (legado; preferir `/auth/register`). |
 | `/users` | Solo `ADMIN` (sesión interna + rol) | ABM de usuarios del panel (ver tabla siguiente). |
 | `/categories` | Admin | CRUD de categorías. |
-| `/products` | Admin | CRUD de productos; campo opcional `imagen_url` (URL). |
+| `/admin/productos` | Admin | CRUD de productos; campo opcional `imagen_url` (URL). |
 | `/promotions` | Admin | CRUD de promociones. |
 | `/coupons` | Admin | CRUD de cupones. |
 | `/orders` | Cliente + admin | `GET /me` (historial del cliente autenticado por cookie/Bearer cliente); listado y detalle admin; `PATCH /:id/status` (admin). |
