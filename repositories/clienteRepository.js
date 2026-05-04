@@ -54,6 +54,38 @@ const insertCliente = async ({ nombre, apellido, email, telefono, passwordHash }
     return result.insertId;
 };
 
+const saveResetPasswordToken = async ({ clienteId, tokenHash, expiresAt }) => {
+    await db.execute(
+        `UPDATE clientes
+         SET reset_password_token = ?, reset_password_expira = ?, fecha_modificacion = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [tokenHash, expiresAt, clienteId],
+    );
+};
+
+const findByResetPasswordToken = async (tokenHash) => {
+    const [rows] = await db.execute(
+        `SELECT id, email, nombre, apellido, activo, reset_password_expira
+         FROM clientes
+         WHERE reset_password_token = ?
+           AND reset_password_expira IS NOT NULL
+           AND reset_password_expira > NOW()
+         LIMIT 1`,
+        [tokenHash],
+    );
+    return rows[0] || null;
+};
+
+const updatePasswordAndClearResetToken = async ({ clienteId, passwordHash }) => {
+    const [result] = await db.execute(
+        `UPDATE clientes
+         SET password_hash = ?, reset_password_token = NULL, reset_password_expira = NULL, fecha_modificacion = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [passwordHash, clienteId],
+    );
+    return result.affectedRows > 0;
+};
+
 module.exports = {
     mapRowToPublic,
     findByEmailWithHash,
@@ -61,5 +93,8 @@ module.exports = {
     findByIdForAuth,
     emailExists,
     insertCliente,
+    saveResetPasswordToken,
+    findByResetPasswordToken,
+    updatePasswordAndClearResetToken,
     PUBLIC_FIELDS,
 };

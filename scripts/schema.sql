@@ -28,9 +28,12 @@ CREATE TABLE IF NOT EXISTS clientes (
     email               VARCHAR(150)    NOT NULL UNIQUE,
     telefono            VARCHAR(20)     NULL,
     password_hash       VARCHAR(255)    NOT NULL,
+    reset_password_token VARCHAR(255)   NULL,
+    reset_password_expira DATETIME      NULL,
     activo              TINYINT(1)      NOT NULL DEFAULT 1,
     fecha_creacion      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+    fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_clientes_reset_password_token (reset_password_token)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS categorias (

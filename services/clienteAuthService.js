@@ -1,10 +1,16 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const clienteRepository = require('../repositories/clienteRepository');
 const { TOKEN_EXPIRATION, JWT_TOKEN_USE } = require('../config/constants');
 const { AppError } = require('../middlewares/errorHandler');
+const { sendResetPasswordEmail } = require('./emailService');
 
 const BCRYPT_ROUNDS = 10;
+const RESET_TOKEN_EXPIRATION_MS = 60 * 60 * 1000;
+const RESET_TOKEN_BYTES = 32;
+const FORGOT_PASSWORD_GENERIC_MESSAGE =
+    'Si el correo existe, enviaremos un enlace para restablecer tu contraseña.';
 
 const buildClienteTokenPayload = (cliente) => ({
     id: cliente.id,
@@ -91,10 +97,86 @@ const getMeCliente = async (clienteId) => {
     return cliente;
 };
 
+const hashResetToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+const buildResetPasswordUrl = (token) => {
+    const frontendUrl = String(process.env.FRONTEND_URL || '').trim();
+    if (!frontendUrl) {
+        throw new AppError(
+            'No se pudo procesar la solicitud de recuperación',
+            500,
+            'FORGOT_PASSWORD_UNAVAILABLE',
+        );
+    }
+
+    try {
+        const base = frontendUrl.replace(/\/+$/, '');
+        const url = new URL(`${base}/auth/reset-password`);
+        url.searchParams.set('token', token);
+        return url.toString();
+    } catch (_error) {
+        throw new AppError(
+            'No se pudo procesar la solicitud de recuperación',
+            500,
+            'FORGOT_PASSWORD_UNAVAILABLE',
+        );
+    }
+};
+
+const forgotPasswordCliente = async ({ email }) => {
+    buildResetPasswordUrl('config-check');
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const row = await clienteRepository.findByEmailWithHash(normalizedEmail);
+
+    if (!row || !row.activo || Number(row.activo) === 0) {
+        return { message: FORGOT_PASSWORD_GENERIC_MESSAGE };
+    }
+
+    const rawToken = crypto.randomBytes(RESET_TOKEN_BYTES).toString('hex');
+    const tokenHash = hashResetToken(rawToken);
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRATION_MS);
+    const resetUrl = buildResetPasswordUrl(rawToken);
+
+    await clienteRepository.saveResetPasswordToken({
+        clienteId: row.id,
+        tokenHash,
+        expiresAt,
+    });
+
+    await sendResetPasswordEmail({
+        to: row.email,
+        nombre: row.nombre,
+        resetUrl,
+    });
+
+    return { message: FORGOT_PASSWORD_GENERIC_MESSAGE };
+};
+
+const resetPasswordCliente = async ({ token, password }) => {
+    const tokenHash = hashResetToken(String(token || '').trim());
+    const cliente = await clienteRepository.findByResetPasswordToken(tokenHash);
+
+    if (!cliente) {
+        throw new AppError('Token inválido o vencido', 400, 'RESET_TOKEN_INVALID_OR_EXPIRED');
+    }
+
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const updated = await clienteRepository.updatePasswordAndClearResetToken({
+        clienteId: cliente.id,
+        passwordHash,
+    });
+
+    if (!updated) {
+        throw new AppError('No se pudo actualizar la contraseña', 500, 'RESET_PASSWORD_FAILED');
+    }
+};
+
 module.exports = {
     registerCliente,
     loginCliente,
     getMeCliente,
+    forgotPasswordCliente,
+    resetPasswordCliente,
     signClienteAccessToken,
     verifyClienteCredentials,
 };

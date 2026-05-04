@@ -98,3 +98,13 @@ exports.me = asyncHandler(async (req, res) => {
     const cliente = await clienteAuthService.getMeCliente(req.auth.id);
     res.json({ ok: true, usuario: mapClienteMe(cliente) });
 });
+
+exports.forgotPassword = asyncHandler(async (req, res) => {
+    const result = await clienteAuthService.forgotPasswordCliente(req.validatedData);
+    res.json({ ok: true, message: result.message });
+});
+
+exports.resetPassword = asyncHandler(async (req, res) => {
+    await clienteAuthService.resetPasswordCliente(req.validatedData);
+    res.json({ ok: true, message: 'Contraseña actualizada correctamente' });
+});
