@@ -15,12 +15,12 @@ module.exports = {
         STORE_CLIENT: 'store_client',
     },
 
+    /** Valores del ENUM `pedidos.estado` en MySQL (español). */
     ORDER_STATUS: {
-        PENDING: 'PENDING',
-        CONFIRMED: 'CONFIRMED',
-        SHIPPED: 'SHIPPED',
-        DELIVERED: 'DELIVERED',
-        CANCELLED: 'CANCELLED',
+        PENDIENTE: 'PENDIENTE',
+        CONFIRMADO: 'CONFIRMADO',
+        ENTREGADO: 'ENTREGADO',
+        CANCELADO: 'CANCELADO',
     },
 
     PROMOTION_TYPES: {

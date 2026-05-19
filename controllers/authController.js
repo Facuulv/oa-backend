@@ -8,7 +8,7 @@ const {
     clientSessionCookieOptions,
     clearAllSessionCookies,
 } = require('../config/authCookie');
-const { ROLES } = require('../config/constants');
+const { mapClienteMe } = require('../utils/mapClienteMe');
 
 const mapUsuarioMe = (u) => ({
     id: u.id,
@@ -22,18 +22,6 @@ const mapUsuarioMe = (u) => ({
     fecha_creacion: u.fecha_creacion,
     fecha_modificacion: u.fecha_modificacion ?? null,
     origen: 'ADMIN',
-});
-
-const mapClienteMe = (c) => ({
-    id: c.id,
-    email: c.email,
-    nombre: c.nombre,
-    apellido: c.apellido,
-    rol: ROLES.CLIENTE,
-    telefono: c.telefono,
-    activo: c.activo,
-    fecha_creacion: c.fecha_creacion,
-    origen: 'CLIENTE',
 });
 
 /**

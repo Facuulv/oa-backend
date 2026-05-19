@@ -1,6 +1,8 @@
 const db = require('../config/database');
+const { formatDateOnly } = require('../utils/mapClienteMe');
 
-const PUBLIC_FIELDS = 'id, nombre, apellido, email, telefono, activo, fecha_creacion';
+const PUBLIC_FIELDS =
+    'id, nombre, apellido, dni, email, telefono, fecha_nacimiento, activo, fecha_creacion';
 
 const mapRowToPublic = (row) => {
     if (!row) return null;
@@ -8,8 +10,10 @@ const mapRowToPublic = (row) => {
         id: row.id,
         nombre: row.nombre,
         apellido: row.apellido,
+        dni: row.dni ?? null,
         email: row.email,
         telefono: row.telefono,
+        fecha_nacimiento: formatDateOnly(row.fecha_nacimiento),
         activo: Boolean(row.activo),
         fecha_creacion: row.fecha_creacion,
     };
@@ -17,7 +21,7 @@ const mapRowToPublic = (row) => {
 
 const findByEmailWithHash = async (email) => {
     const [rows] = await db.execute(
-        `SELECT id, nombre, apellido, email, telefono, password_hash, activo, fecha_creacion
+        `SELECT id, nombre, apellido, dni, email, telefono, fecha_nacimiento, password_hash, activo, fecha_creacion
          FROM clientes WHERE email = ? LIMIT 1`,
         [email],
     );
@@ -45,13 +49,70 @@ const emailExists = async (email) => {
     return rows.length > 0;
 };
 
-const insertCliente = async ({ nombre, apellido, email, telefono, passwordHash }) => {
+const dniExists = async (dni) => {
+    if (dni === null || dni === undefined || String(dni).trim() === '') return false;
+    const [rows] = await db.execute('SELECT id FROM clientes WHERE dni = ? LIMIT 1', [String(dni).trim()]);
+    return rows.length > 0;
+};
+
+const dniExistsExcluding = async (dni, excludeId) => {
+    if (dni === null || dni === undefined || String(dni).trim() === '') return false;
+    const [rows] = await db.execute('SELECT id FROM clientes WHERE dni = ? AND id <> ? LIMIT 1', [
+        String(dni).trim(),
+        excludeId,
+    ]);
+    return rows.length > 0;
+};
+
+const insertCliente = async ({ nombre, apellido, dni, email, telefono, fecha_nacimiento, passwordHash }) => {
     const [result] = await db.execute(
-        `INSERT INTO clientes (nombre, apellido, email, telefono, password_hash)
-         VALUES (?, ?, ?, ?, ?)`,
-        [nombre, apellido, email, telefono || null, passwordHash],
+        `INSERT INTO clientes (nombre, apellido, dni, email, telefono, fecha_nacimiento, password_hash)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+            nombre,
+            apellido,
+            String(dni).trim(),
+            email,
+            telefono || null,
+            fecha_nacimiento || null,
+            passwordHash,
+        ],
     );
     return result.insertId;
+};
+
+const updateCliente = async (id, fields) => {
+    const allowed = ['nombre', 'apellido', 'dni', 'telefono', 'fecha_nacimiento'];
+    const setClauses = [];
+    const values = [];
+
+    for (const key of allowed) {
+        if (fields[key] !== undefined) {
+            setClauses.push(`${key} = ?`);
+            if (key === 'dni') {
+                values.push(String(fields[key]).trim());
+            } else if (key === 'fecha_nacimiento') {
+                const v = fields[key];
+                values.push(v === null || v === undefined ? null : formatDateOnly(v));
+            } else if (key === 'telefono') {
+                const v = fields[key];
+                values.push(v === null || v === undefined || String(v).trim() === '' ? null : String(v).trim());
+            } else {
+                values.push(fields[key]);
+            }
+        }
+    }
+
+    if (setClauses.length === 0) return 0;
+
+    setClauses.push('fecha_modificacion = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    const [result] = await db.execute(
+        `UPDATE clientes SET ${setClauses.join(', ')} WHERE id = ?`,
+        values,
+    );
+    return result.affectedRows;
 };
 
 const saveResetPasswordToken = async ({ clienteId, tokenHash, expiresAt }) => {
@@ -92,7 +153,10 @@ module.exports = {
     findByIdPublic,
     findByIdForAuth,
     emailExists,
+    dniExists,
+    dniExistsExcluding,
     insertCliente,
+    updateCliente,
     saveResetPasswordToken,
     findByResetPasswordToken,
     updatePasswordAndClearResetToken,

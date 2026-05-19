@@ -1,5 +1,6 @@
 const db = require('../config/database');
 const asyncHandler = require('../utils/asyncHandler');
+const { ORDER_STATUS } = require('../config/constants');
 
 exports.dashboard = asyncHandler(async (_req, res) => {
     const [ordersToday] = await db.execute(
@@ -7,11 +8,13 @@ exports.dashboard = asyncHandler(async (_req, res) => {
     );
 
     const [revenueToday] = await db.execute(
-        "SELECT COALESCE(SUM(total), 0) AS revenue FROM pedidos WHERE DATE(fecha_creacion) = CURDATE() AND estado != 'CANCELLED'",
+        `SELECT COALESCE(SUM(total), 0) AS revenue FROM pedidos WHERE DATE(fecha_creacion) = CURDATE() AND estado != ?`,
+        [ORDER_STATUS.CANCELADO],
     );
 
     const [pendingOrders] = await db.execute(
-        "SELECT COUNT(*) AS count FROM pedidos WHERE estado = 'PENDING'",
+        'SELECT COUNT(*) AS count FROM pedidos WHERE estado = ?',
+        [ORDER_STATUS.PENDIENTE],
     );
 
     const [totalProducts] = await db.execute('SELECT COUNT(*) AS count FROM productos WHERE activo = 1');

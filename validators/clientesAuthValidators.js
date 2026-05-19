@@ -1,10 +1,16 @@
 const { z } = require('zod');
-const { registerSchema } = require('./authValidators');
+const {
+    registerSchemaBase,
+    registerBirthDateRefine,
+    registerBirthDateRefineOpts,
+} = require('./authValidators');
 
 /** `useCookie` por defecto `true` para el endpoint legado `POST /clientes/register`. */
-const registerClienteCookieSchema = registerSchema.extend({
-    useCookie: z.boolean().optional().default(true),
-});
+const registerClienteCookieSchema = registerSchemaBase
+    .extend({
+        useCookie: z.boolean().optional().default(true),
+    })
+    .refine(registerBirthDateRefine, registerBirthDateRefineOpts);
 
 module.exports = {
     registerClienteCookieSchema,

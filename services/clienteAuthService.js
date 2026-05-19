@@ -52,18 +52,25 @@ const verifyClienteCredentials = async ({ email, password }) => {
     return row;
 };
 
-const registerCliente = async ({ nombre, apellido, email, password, telefono }) => {
+const registerCliente = async ({ nombre, apellido, dni, email, password, telefono, fecha_nacimiento }) => {
     const exists = await clienteRepository.emailExists(email);
     if (exists) {
         throw new AppError('El email ya está registrado', 409, 'EMAIL_EXISTS');
+    }
+
+    const dniTrim = String(dni).trim();
+    if (await clienteRepository.dniExists(dniTrim)) {
+        throw new AppError('El DNI ya está registrado', 409, 'DNI_EXISTS');
     }
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const id = await clienteRepository.insertCliente({
         nombre,
         apellido,
+        dni: dniTrim,
         email,
         telefono,
+        fecha_nacimiento: fecha_nacimiento ?? null,
         passwordHash,
     });
 
@@ -95,6 +102,28 @@ const getMeCliente = async (clienteId) => {
         throw new AppError('Cliente no encontrado', 404, 'CLIENT_NOT_FOUND');
     }
     return cliente;
+};
+
+const updateClienteProfile = async (clienteId, fields) => {
+    const existing = await clienteRepository.findByIdForAuth(clienteId);
+    if (!existing) {
+        throw new AppError('Cliente no encontrado', 404, 'CLIENT_NOT_FOUND');
+    }
+
+    if (fields.dni !== undefined) {
+        const dniTrim = String(fields.dni).trim();
+        if (await clienteRepository.dniExistsExcluding(dniTrim, clienteId)) {
+            throw new AppError('El DNI ya está registrado', 409, 'DNI_EXISTS');
+        }
+        fields.dni = dniTrim;
+    }
+
+    const affected = await clienteRepository.updateCliente(clienteId, fields);
+    if (!affected) {
+        throw new AppError('No hay campos válidos para actualizar', 400, 'NO_FIELDS');
+    }
+
+    return getMeCliente(clienteId);
 };
 
 const hashResetToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
@@ -175,6 +204,7 @@ module.exports = {
     registerCliente,
     loginCliente,
     getMeCliente,
+    updateClienteProfile,
     forgotPasswordCliente,
     resetPasswordCliente,
     signClienteAccessToken,

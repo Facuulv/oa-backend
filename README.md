@@ -214,7 +214,8 @@ El sistema distingue **dos tablas** de identidad (decisión de dominio): **`usua
 | `POST /auth/login` | Credenciales unificadas. Respuesta JSON `{ ok, expiresIn, usuario }` **sin token en el cuerpo**. Se fija la cookie de sesión que corresponde: admin (`oa_admin_token` por defecto) o cliente (`oa_client_token` por defecto). Antes se limpian ambas cookies para evitar sesiones cruzadas. |
 | `POST /auth/logout` | Borra **ambas** cookies de sesión (admin y cliente). |
 | `GET /auth/me` | Sesión actual: acepta `Authorization: Bearer`, luego cookie admin, luego cookie cliente. Respuesta `{ ok, usuario }` con campos acotados; `usuario.origen` es `ADMIN` (sesión desde `usuarios`) o `CLIENTE` (desde `clientes`); `usuario.rol` refleja el rol en BD o `CLIENTE` para la tabla clientes. |
-| `POST /auth/register` | Alta en **`clientes`**. Body tipo registro + `useCookie` opcional (default `false`): con `true`, JWT solo en cookie cliente; con `false`, incluye `token` en JSON. |
+| `POST /auth/register` | Alta en **`clientes`**. Body: `nombre`, `apellido`, **`dni`** (obligatorio, único, 7–10 dígitos), `email`, `password`, `telefono` y `fecha_nacimiento` opcionales, `useCookie` opcional (default `false`). Errores `409`: `EMAIL_EXISTS`, `DNI_EXISTS`. |
+| `PATCH /clientes/me` | Actualiza perfil del cliente logueado (`authenticateCliente`). Campos: `nombre`, `apellido`, `telefono`, `dni`, `fecha_nacimiento`. No permite `email` ni `password`. Respuesta `{ ok, usuario }` mismo shape que `/auth/me`. |
 | `POST /clientes/register` | **Compatibilidad** con clientes que ya integraron esta ruta; mismo flujo que registro en `clientes`, con `useCookie` por defecto `true`. **Login, logout y “me”** deben usar **`/auth/*`**. |
 
 **Errores habituales (JSON):** credenciales inválidas `401` / `INVALID_CREDENTIALS`; cuenta inactiva admin `403` / `USER_INACTIVE`; cliente inactivo `403` / `CLIENT_INACTIVE`; sin sesión `401` / `NO_SESSION`.
@@ -234,7 +235,7 @@ Prefijo base: raíz del servidor (ej. `http://localhost:4000`). Rutas montadas e
 | Prefijo | Audiencia | Resumen |
 |---------|-----------|---------|
 | `/auth` | Pública / sesión | `POST /register`, `POST /login`, `POST /logout`, `GET /me` (ver sección anterior). |
-| `/clientes` | Pública | Solo `POST /register` (legado; preferir `/auth/register`). |
+| `/clientes` | Mixta | `POST /register` (legado; preferir `/auth/register`). `PATCH /me` requiere sesión cliente. |
 | `/users` | Solo `ADMIN` (sesión interna + rol) | ABM de usuarios del panel (ver tabla siguiente). |
 | `/categories` | Admin | CRUD de categorías. |
 | `/admin/productos` | Admin | CRUD de productos; campo opcional `imagen_url` (URL). |

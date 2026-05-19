@@ -5,19 +5,7 @@ const {
     clientSessionCookieOptions,
     clearAllSessionCookies,
 } = require('../config/authCookie');
-const { ROLES } = require('../config/constants');
-
-const mapClienteMe = (c) => ({
-    id: c.id,
-    email: c.email,
-    nombre: c.nombre,
-    apellido: c.apellido,
-    rol: ROLES.CLIENTE,
-    telefono: c.telefono,
-    activo: c.activo,
-    fecha_creacion: c.fecha_creacion,
-    origen: 'CLIENTE',
-});
+const { mapClienteMe } = require('../utils/mapClienteMe');
 
 /**
  * @deprecated Preferir `POST /auth/register`. Se mantiene por compatibilidad con clientes existentes.
@@ -43,4 +31,9 @@ exports.register = asyncHandler(async (req, res) => {
         expiresIn,
         usuario: mapClienteMe(cliente),
     });
+});
+
+exports.patchMe = asyncHandler(async (req, res) => {
+    const cliente = await clienteAuthService.updateClienteProfile(req.auth.id, req.validatedData);
+    res.json({ ok: true, usuario: mapClienteMe(cliente) });
 });

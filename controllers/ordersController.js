@@ -60,6 +60,31 @@ exports.list = asyncHandler(async (req, res) => {
     });
 });
 
+const ORDER_ITEMS_SELECT = `pd.id,
+        pd.pedido_id AS order_id,
+        pd.producto_id AS product_id,
+        pd.nombre_producto AS product_name,
+        pd.cantidad AS quantity,
+        pd.precio_unitario AS unit_price,
+        pd.subtotal,
+        pd.observaciones AS notes,
+        pd.fecha_creacion AS created_at`;
+
+async function fetchOrderItems(orderId) {
+    const [items] = await db.execute(
+        `SELECT ${ORDER_ITEMS_SELECT}
+         FROM pedidos_detalle pd
+         WHERE pd.pedido_id = ?
+         ORDER BY pd.id ASC`,
+        [orderId],
+    );
+    return items;
+}
+
+function resolveClienteId(req) {
+    return req.cliente?.id ?? (req.auth?.origen === 'CLIENTE' ? req.auth.id : null);
+}
+
 exports.getById = asyncHandler(async (req, res) => {
     const { id } = req.validatedParams;
 
@@ -71,20 +96,27 @@ exports.getById = asyncHandler(async (req, res) => {
         throw new AppError('Order not found', 404, 'ORDER_NOT_FOUND');
     }
 
-    const [items] = await db.execute(
-        `SELECT pd.id,
-                pd.pedido_id AS order_id,
-                pd.producto_id AS product_id,
-                pd.nombre_producto AS product_name,
-                pd.cantidad AS quantity,
-                pd.precio_unitario AS unit_price,
-                pd.subtotal,
-                pd.observaciones AS notes,
-                pd.fecha_creacion AS created_at
-         FROM pedidos_detalle pd
-         WHERE pd.pedido_id = ?`,
-        [id],
+    const items = await fetchOrderItems(id);
+
+    res.json({ data: { ...orders[0], items } });
+});
+
+exports.myOrderById = asyncHandler(async (req, res) => {
+    const { id } = req.validatedParams;
+    const clienteId = resolveClienteId(req);
+    if (!clienteId) {
+        throw new AppError('Cliente no autenticado', 401, 'NOT_AUTHENTICATED');
+    }
+
+    const [orders] = await db.execute(
+        `SELECT ${ORDER_LIST_SELECT} FROM pedidos o WHERE o.id = ? AND o.cliente_id = ?`,
+        [id, clienteId],
     );
+    if (orders.length === 0) {
+        throw new AppError('Pedido no encontrado', 404, 'ORDER_NOT_FOUND');
+    }
+
+    const items = await fetchOrderItems(id);
 
     res.json({ data: { ...orders[0], items } });
 });
@@ -177,7 +209,7 @@ exports.create = asyncHandler(async (req, res) => {
                 total,
                 data.couponCode || null,
                 data.notes || null,
-                ORDER_STATUS.PENDING,
+                ORDER_STATUS.PENDIENTE,
                 canalOrigen,
             ],
         );
@@ -216,7 +248,7 @@ exports.create = asyncHandler(async (req, res) => {
         await connection.commit();
 
         res.status(201).json({
-            data: { id: orderId, status: ORDER_STATUS.PENDING, total },
+            data: { id: orderId, status: ORDER_STATUS.PENDIENTE, total },
         });
     } catch (error) {
         await connection.rollback();
@@ -253,6 +285,13 @@ exports.myOrders = asyncHandler(async (req, res) => {
         throw new AppError('Cliente no autenticado', 401, 'NOT_AUTHENTICATED');
     }
 
+    const [countResult] = await db.execute(
+        'SELECT COUNT(*) AS total FROM pedidos o WHERE o.cliente_id = ?',
+        [clienteId],
+    );
+    const total = Number(countResult[0]?.total) || 0;
+    const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+
     const [orders] = await db.execute(
         `SELECT ${ORDER_LIST_SELECT}
          FROM pedidos o
@@ -262,5 +301,15 @@ exports.myOrders = asyncHandler(async (req, res) => {
         [clienteId, String(limit), String(offset)],
     );
 
-    res.json({ data: orders });
+    res.json({
+        data: orders,
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1,
+        },
+    });
 });

@@ -17,6 +17,14 @@ const numStock = (v) => {
     return Number.isFinite(n) ? n : 0;
 };
 
+const promoSinComponentesError = (productoId) =>
+    new AppError(
+        'Esta promoción no puede comprarse porque no tiene productos componentes configurados. Elegí otro producto o contactá al local.',
+        400,
+        'PROMO_SIN_COMPONENTES',
+        { productId: productoId },
+    );
+
 /**
  * Mapa producto_padre_id → { maxVendible, disponibleParaVenta } según stock actual de componentes.
  * @param {number[]} productoPadreIds
@@ -76,7 +84,7 @@ const verificarStockSuficienteParaVenta = async (conn, productoId, cantidadVendi
     if (parent.tipo_producto === TIPO_PRODUCTO.PROMOCION) {
         const raw = await productoComponenteRepository.listarDetallePorPadre(conn, productoId);
         if (!raw.length) {
-            throw new AppError('La promoción no tiene componentes configurados', 400, 'PROMO_SIN_COMPONENTES');
+            throw promoSinComponentesError(productoId);
         }
         const childIds = [...new Set(raw.map((r) => r.producto_hijo_id))].sort((a, b) => a - b);
         for (const hid of childIds) {
@@ -134,7 +142,7 @@ const descontarStockVenta = async (conn, productoId, cantidadVendida) => {
     if (parent.tipo_producto === TIPO_PRODUCTO.PROMOCION) {
         const lineas = await productoComponenteRepository.listarDetallePorPadre(conn, productoId);
         if (!lineas.length) {
-            throw new AppError('La promoción no tiene componentes configurados', 400, 'PROMO_SIN_COMPONENTES');
+            throw promoSinComponentesError(productoId);
         }
         for (const r of lineas) {
             const need = (Math.trunc(Number(r.cantidad)) || 0) * qty;

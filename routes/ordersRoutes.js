@@ -8,6 +8,13 @@ const { updateOrderStatusSchema } = require('../validators/ordersValidators');
 const { idParamSchema } = require('../validators/common');
 
 router.get('/me', apiRateLimiter, authenticateCliente, ordersController.myOrders);
+router.get(
+    '/me/:id',
+    apiRateLimiter,
+    authenticateCliente,
+    validateParams(idParamSchema),
+    ordersController.myOrderById,
+);
 router.get('/', apiRateLimiter, ...requireAdmin, ordersController.list);
 router.get('/:id', apiRateLimiter, ...requireAdmin, validateParams(idParamSchema), ordersController.getById);
 router.patch(

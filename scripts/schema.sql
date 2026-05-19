@@ -25,14 +25,17 @@ CREATE TABLE IF NOT EXISTS clientes (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     nombre              VARCHAR(100)    NOT NULL,
     apellido            VARCHAR(100)    NOT NULL,
+    dni                 VARCHAR(32)     NOT NULL,
     email               VARCHAR(150)    NOT NULL UNIQUE,
     telefono            VARCHAR(20)     NULL,
+    fecha_nacimiento    DATE            NULL,
     password_hash       VARCHAR(255)    NOT NULL,
     reset_password_token VARCHAR(255)   NULL,
     reset_password_expira DATETIME      NULL,
     activo              TINYINT(1)      NOT NULL DEFAULT 1,
     fecha_creacion      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_clientes_dni (dni),
     KEY idx_clientes_reset_password_token (reset_password_token)
 ) ENGINE=InnoDB;
 
@@ -125,7 +128,7 @@ CREATE TABLE IF NOT EXISTS pedidos (
     total               DECIMAL(10,2)   NOT NULL DEFAULT 0,
     codigo_cupon        VARCHAR(30)     NULL,
     observaciones       VARCHAR(500)    NULL,
-    estado              ENUM('PENDING','CONFIRMED','SHIPPED','DELIVERED','CANCELLED') NOT NULL DEFAULT 'PENDING',
+    estado              ENUM('PENDIENTE','CONFIRMADO','ENTREGADO','CANCELADO') NOT NULL DEFAULT 'PENDIENTE',
     canal_origen        VARCHAR(50)     NOT NULL DEFAULT 'WEB',
     fecha_creacion      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_modificacion  TIMESTAMP       NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
