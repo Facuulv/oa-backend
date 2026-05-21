@@ -8,7 +8,10 @@ const comboPayloadSchema = z
         base: z.unknown().optional().nullable(),
         mixer: z.unknown().optional().nullable(),
         extras: z.record(z.string(), z.unknown()).optional(),
+        /** @deprecated Legacy; hielo va en `extras` con producto_id real. */
         iceBags: z.coerce.number().int().min(0).max(50).optional(),
+        /** @deprecated Legacy mapa de hielo; preferir `extras`. */
+        ice: z.record(z.string(), z.unknown()).optional(),
         items: z.array(z.unknown()).optional(),
     })
     .strict()

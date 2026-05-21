@@ -8,6 +8,13 @@ const {
     verificarStockSuficienteParaVenta,
     descontarStockVenta,
 } = require('../services/productoStockVentaService');
+const {
+    normalizeOrderItems,
+    mergeOrderItemsByProductId,
+    assertProductsSellable,
+} = require('../services/normalizeOrderItems');
+const { buildOrderPricing } = require('../services/buildOrderPricing');
+const { buildOrderObservaciones } = require('../utils/appendComboTraceToNotes');
 
 const ORDER_LIST_SELECT = `o.id,
         o.usuario_id AS user_id,
@@ -123,36 +130,26 @@ exports.myOrderById = asyncHandler(async (req, res) => {
 
 exports.create = asyncHandler(async (req, res) => {
     const data = req.validatedData;
+    const items = normalizeOrderItems(data.items);
+    const mergedItems = mergeOrderItemsByProductId(items);
     const connection = await db.getConnection();
 
     try {
         await connection.beginTransaction();
 
-        const productIds = [...new Set(data.items.map((i) => i.productId))];
+        const productIds = mergedItems.map((i) => i.productId);
         const placeholders = productIds.map(() => '?').join(',');
         const [productRows] = await connection.execute(
-            `SELECT id, nombre, precio FROM productos WHERE id IN (${placeholders}) AND activo = 1`,
+            `SELECT id, nombre, precio, activo, disponible FROM productos WHERE id IN (${placeholders})`,
             productIds,
         );
+        assertProductsSellable(productIds, productRows);
         const productMap = new Map(productRows.map((p) => [p.id, p]));
-        for (const id of productIds) {
-            if (!productMap.has(id)) {
-                throw new AppError('Producto inválido o inactivo', 400, 'INVALID_PRODUCT');
-            }
-        }
+        const { lines: pricedLines, orderSubtotal: subtotal } = buildOrderPricing(mergedItems, productMap);
 
-        const qtyByProduct = new Map();
-        for (const item of data.items) {
-            qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) || 0) + item.quantity);
+        for (const item of mergedItems) {
+            await verificarStockSuficienteParaVenta(connection, item.productId, item.quantity);
         }
-        const sortedProductIds = [...qtyByProduct.keys()].sort((a, b) => a - b);
-        for (const pid of sortedProductIds) {
-            await verificarStockSuficienteParaVenta(connection, pid, qtyByProduct.get(pid));
-        }
-
-        const subtotal = Math.round(
-            data.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) * 100,
-        ) / 100;
 
         let descuento = 0;
         let couponRow = null;
@@ -190,6 +187,7 @@ exports.create = asyncHandler(async (req, res) => {
 
         const tipoEntrega = resolveTipoEntrega(data);
         const canalOrigen = resolveCanalOrigen(data);
+        const observaciones = buildOrderObservaciones(data.notes, data.comboLabels);
 
         const [orderResult] = await connection.execute(
             `INSERT INTO pedidos
@@ -208,7 +206,7 @@ exports.create = asyncHandler(async (req, res) => {
                 descuento,
                 total,
                 data.couponCode || null,
-                data.notes || null,
+                observaciones,
                 ORDER_STATUS.PENDIENTE,
                 canalOrigen,
             ],
@@ -216,25 +214,23 @@ exports.create = asyncHandler(async (req, res) => {
 
         const orderId = orderResult.insertId;
 
-        for (const pid of sortedProductIds) {
-            await descontarStockVenta(connection, pid, qtyByProduct.get(pid));
+        for (const item of mergedItems) {
+            await descontarStockVenta(connection, item.productId, item.quantity);
         }
 
-        for (const item of data.items) {
-            const prod = productMap.get(item.productId);
-            const lineSubtotal = Math.round(item.unitPrice * item.quantity * 100) / 100;
+        for (const line of pricedLines) {
             await connection.execute(
                 `INSERT INTO pedidos_detalle
                  (pedido_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal, observaciones)
                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
                     orderId,
-                    item.productId,
-                    prod.nombre,
-                    item.quantity,
-                    item.unitPrice,
-                    lineSubtotal,
-                    item.notes || null,
+                    line.productId,
+                    line.productName,
+                    line.quantity,
+                    line.unitPrice,
+                    line.lineSubtotal,
+                    line.notes,
                 ],
             );
         }
