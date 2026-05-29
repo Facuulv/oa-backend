@@ -26,13 +26,27 @@ const globalErrorHandler = (err, req, res, next) => {
     const statusCode = err.statusCode || err.status || 500;
     const isProduction = process.env.NODE_ENV === 'production';
 
-    res.status(statusCode).json({
-        error: isProduction && statusCode === 500 ? 'Internal server error' : err.message,
+    let clientMessage;
+    if (err.isOperational && err.message) {
+        clientMessage = err.message;
+    } else if (isProduction && statusCode === 500) {
+        clientMessage = 'Internal server error';
+    } else {
+        clientMessage = err.message;
+    }
+
+    const payload = {
+        error: clientMessage,
         code: err.code || 'INTERNAL_ERROR',
-        ...(err.errors && { errors: err.errors }),
         timestamp: new Date().toISOString(),
         path: req.originalUrl,
-    });
+    };
+
+    if (err.errors && statusCode < 500) {
+        payload.errors = err.errors;
+    }
+
+    res.status(statusCode).json(payload);
 };
 
 module.exports = { AppError, notFoundHandler, globalErrorHandler };

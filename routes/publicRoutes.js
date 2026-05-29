@@ -6,6 +6,7 @@ const promotionsController = require('../controllers/promotionsController');
 const couponsController = require('../controllers/couponsController');
 const ordersController = require('../controllers/ordersController');
 const checkoutController = require('../controllers/checkoutController');
+const publicCartaController = require('../controllers/publicCartaController');
 const { apiRateLimiter, strictRateLimiter } = require('../middlewares/rateLimit');
 const { optionalAuthenticateSession } = require('../middlewares/auth');
 const { validate, validateParams } = require('../middlewares/validate');
@@ -18,6 +19,8 @@ router.get('/categories/:id', apiRateLimiter, validateParams(idParamSchema), cat
 router.get('/productos', apiRateLimiter, productsController.list);
 router.get('/productos/:id', apiRateLimiter, validateParams(idParamSchema), productsController.getById);
 router.get('/promotions', apiRateLimiter, promotionsController.listActive);
+router.get('/carta/estado', apiRateLimiter, publicCartaController.getEstado);
+router.get('/carta/config', apiRateLimiter, publicCartaController.getConfig);
 router.post('/coupons/validate', apiRateLimiter, validate(validateCouponSchema), couponsController.validateCoupon);
 router.post(
     '/orders',

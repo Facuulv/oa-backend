@@ -15,6 +15,7 @@ const {
 } = require('../services/normalizeOrderItems');
 const { buildOrderPricing } = require('../services/buildOrderPricing');
 const { buildOrderObservaciones } = require('../utils/appendComboTraceToNotes');
+const storeScheduleService = require('../services/storeScheduleService');
 
 const ORDER_LIST_SELECT = `o.id,
         o.usuario_id AS user_id,
@@ -130,6 +131,23 @@ exports.myOrderById = asyncHandler(async (req, res) => {
 
 exports.create = asyncHandler(async (req, res) => {
     const data = req.validatedData;
+
+    const estadoTienda = await storeScheduleService.getEstadoTienda();
+    if (estadoTienda.bloqueado) {
+        throw new AppError(
+            estadoTienda.mensaje || 'La carta online no está disponible en este momento.',
+            400,
+            'CARTA_CERRADA',
+        );
+    }
+    if (estadoTienda.validarHorarios && !estadoTienda.estaAbierto) {
+        throw new AppError(
+            estadoTienda.mensaje || 'El local está cerrado y no está tomando pedidos en este momento.',
+            400,
+            'STORE_CLOSED',
+        );
+    }
+
     const items = normalizeOrderItems(data.items);
     const mergedItems = mergeOrderItemsByProductId(items);
     const connection = await db.getConnection();

@@ -4,6 +4,7 @@ const adminController = require('../controllers/adminController');
 const adminCategoriasRoutes = require('./adminCategoriasRoutes');
 const adminProductosRoutes = require('./adminProductosRoutes');
 const adminPromocionesProductoRoutes = require('./adminPromocionesProductoRoutes');
+const adminConfiguracionRoutes = require('./adminConfiguracionRoutes');
 const { requireAdmin, requireAdminOrEncargado } = require('../middlewares/auth');
 const { apiRateLimiter } = require('../middlewares/rateLimit');
 
@@ -12,6 +13,7 @@ router.use('/productos', apiRateLimiter, ...requireAdminOrEncargado, adminProduc
 router.use('/promociones-producto', apiRateLimiter, ...requireAdminOrEncargado, adminPromocionesProductoRoutes);
 
 router.get('/dashboard', apiRateLimiter, ...requireAdminOrEncargado, adminController.dashboard);
+router.use('/configuracion', apiRateLimiter, ...requireAdmin, adminConfiguracionRoutes);
 router.get('/settings', apiRateLimiter, ...requireAdmin, adminController.getSettings);
 router.put('/settings', apiRateLimiter, ...requireAdmin, adminController.updateSetting);
 
