@@ -31,4 +31,4 @@ Express 4 + MySQL (`mysql2/promise`). Layers: **routes** → **middlewares** (au
 ## Route notes
 
 - Customer order history: `GET /orders/me` (JWT).
-- Imágenes de catálogo: el cliente sube a su proveedor (p. ej. Cloudinary) y envía la URL en `imagen_url` en POST/PUT de productos o categorías.
+- Imágenes de catálogo: el backend las sube al VPS (`POST /admin/upload-imagen`) y guarda la URL pública en `imagen_url` (p. ej. `https://files.oabebidas.com/{uuid}.jpg`). Ver `GUIA_VPS_FILES.md` en la raíz del workspace OA!.

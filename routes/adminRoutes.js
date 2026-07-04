@@ -5,9 +5,11 @@ const adminCategoriasRoutes = require('./adminCategoriasRoutes');
 const adminProductosRoutes = require('./adminProductosRoutes');
 const adminPromocionesProductoRoutes = require('./adminPromocionesProductoRoutes');
 const adminConfiguracionRoutes = require('./adminConfiguracionRoutes');
+const adminUploadRoutes = require('./adminUploadRoutes');
 const { requireAdmin, requireAdminOrEncargado } = require('../middlewares/auth');
 const { apiRateLimiter } = require('../middlewares/rateLimit');
 
+router.use('/upload-imagen', apiRateLimiter, ...requireAdminOrEncargado, adminUploadRoutes);
 router.use('/categorias', apiRateLimiter, ...requireAdminOrEncargado, adminCategoriasRoutes);
 router.use('/productos', apiRateLimiter, ...requireAdminOrEncargado, adminProductosRoutes);
 router.use('/promociones-producto', apiRateLimiter, ...requireAdminOrEncargado, adminPromocionesProductoRoutes);

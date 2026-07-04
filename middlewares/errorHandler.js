@@ -26,6 +26,22 @@ const globalErrorHandler = (err, req, res, next) => {
     const statusCode = err.statusCode || err.status || 500;
     const isProduction = process.env.NODE_ENV === 'production';
 
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+            error: 'El tamaño máximo permitido es 5 MB',
+            code: 'IMAGEN_DEMASIADO_GRANDE',
+            timestamp: new Date().toISOString(),
+        });
+    }
+
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({
+            error: 'Campo de archivo inválido; use "imagen"',
+            code: 'IMAGEN_CAMPO_INVALIDO',
+            timestamp: new Date().toISOString(),
+        });
+    }
+
     let clientMessage;
     if (err.isOperational && err.message) {
         clientMessage = err.message;

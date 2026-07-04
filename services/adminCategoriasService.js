@@ -1,6 +1,7 @@
 const categoriaRepository = require('../repositories/categoriaRepository');
 const { AppError } = require('../middlewares/errorHandler');
 const { mapMysqlDriverError } = require('../utils/mysqlErrors');
+const { cleanupReplacedImagenUrl } = require('../utils/cleanupReplacedImagenUrl');
 
 /**
  * Respuesta uniforme para el panel admin (activo como booleano JSON).
@@ -68,9 +69,12 @@ const crear = async (datos) => {
 };
 
 const actualizar = async (id, campos) => {
-    await asegurarExiste(id);
+    const actual = await asegurarExiste(id);
     if (Object.prototype.hasOwnProperty.call(campos, 'nombre')) {
         await asegurarNombreNoDuplicado(campos.nombre, id);
+    }
+    if (Object.prototype.hasOwnProperty.call(campos, 'imagen_url')) {
+        await cleanupReplacedImagenUrl(actual.imagen_url, campos.imagen_url ?? null);
     }
     const afectadas = await ejecutarConMapaMysql(() => categoriaRepository.actualizar(id, campos));
     if (afectadas === 0) {

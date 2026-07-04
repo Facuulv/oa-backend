@@ -58,6 +58,24 @@ const corsOptions = {
     optionsSuccessStatus: 200,
 };
 
+// Desarrollo local: servir imágenes ANTES de helmet.
+// Si /files pasa por helmet(), CORP same-origin bloquea <img> desde localhost:3000 → :3001.
+const { FILES_UPLOAD_PATH: filesUploadPath } = require('./config/fileStorage');
+if (process.env.NODE_ENV === 'development' && filesUploadPath) {
+    app.use(
+        '/files',
+        (_req, res, next) => {
+            res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+            next();
+        },
+        express.static(filesUploadPath, {
+            maxAge: '1h',
+            fallthrough: true,
+        }),
+    );
+    console.log('[oa-api] Dev file server: GET /files/* →', filesUploadPath);
+}
+
 // Middleware
 app.use(helmet());
 app.use(compression());

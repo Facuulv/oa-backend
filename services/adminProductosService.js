@@ -2,6 +2,7 @@ const productoRepository = require('../repositories/productoRepository');
 const categoriaRepository = require('../repositories/categoriaRepository');
 const { AppError } = require('../middlewares/errorHandler');
 const { mapMysqlDriverError } = require('../utils/mysqlErrors');
+const { cleanupReplacedImagenUrl } = require('../utils/cleanupReplacedImagenUrl');
 
 /**
  * @param {object|null} fila
@@ -145,10 +146,14 @@ const crear = async (datos) => {
 };
 
 const actualizar = async (id, campos) => {
-    await asegurarExisteProductoNormal(id);
+    const actual = await asegurarExisteProductoNormal(id);
 
     if (Object.prototype.hasOwnProperty.call(campos, 'categoria_id')) {
         await asegurarCategoria(campos.categoria_id, { requiereActiva: true });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(campos, 'imagen_url')) {
+        await cleanupReplacedImagenUrl(actual.imagen_url, campos.imagen_url ?? null);
     }
 
     const afectadas = await ejecutarConMapaMysql(() => productoRepository.actualizar(id, campos));

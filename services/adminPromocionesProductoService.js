@@ -8,6 +8,7 @@ const { mapMysqlDriverError } = require('../utils/mysqlErrors');
 const { computePromoAvailabilityFromComponents } = require('../utils/promoProductAvailability');
 const adminProductosService = require('./adminProductosService');
 const { mapaDisponibilidadPorPromoIds } = require('./productoStockVentaService');
+const { cleanupReplacedImagenUrl } = require('../utils/cleanupReplacedImagenUrl');
 
 const ejecutarConMapaMysql = async (fn) => {
     try {
@@ -232,13 +233,17 @@ const crear = async (datos) => {
 };
 
 const actualizar = async (id, campos) => {
-    await asegurarPromoExiste(id);
+    const actual = await asegurarPromoExiste(id);
 
     if (Object.prototype.hasOwnProperty.call(campos, 'categoria_id')) {
         await asegurarCategoriaActiva(campos.categoria_id);
     }
 
     const { componentes, ...restoProducto } = campos;
+
+    if (Object.prototype.hasOwnProperty.call(restoProducto, 'imagen_url')) {
+        await cleanupReplacedImagenUrl(actual.imagen_url, restoProducto.imagen_url ?? null);
+    }
     const keysProducto = Object.keys(restoProducto).filter((k) => Object.prototype.hasOwnProperty.call(restoProducto, k));
 
     const conn = await db.getConnection();

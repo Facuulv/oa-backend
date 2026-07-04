@@ -39,7 +39,7 @@ No hay en este código **WebSockets**, **workers** dedicados, **cron** ni colas 
 | Autenticación | **JWT** (`jsonwebtoken`), contraseñas con **bcryptjs** |
 | Validación | **Zod** |
 | Seguridad / HTTP | **helmet**, **cors**, **compression**, **cookie-parser** |
-| Imágenes | URLs en BD (`imagen_url`); sin subida en servidor |
+| Imágenes | Subida multipart en `POST /admin/upload-imagen`; URL pública en BD (`imagen_url`) |
 | Tests (herramienta) | **Jest** + **supertest** (configurados en `package.json`) |
 | Desarrollo | **nodemon** |
 
@@ -49,7 +49,7 @@ No hay en este código **WebSockets**, **workers** dedicados, **cron** ni colas 
 
 - **Node.js** 18 o superior.
 - **MySQL** 8 (o compatible) accesible desde la máquina donde corre la API.
-- Cuenta en un almacén de imágenes (p. ej. **Cloudinary**) solo en el **cliente** si subís archivos desde el frontend; el backend no sube archivos.
+- **Imágenes:** el backend sube archivos al VPS (`POST /admin/upload-imagen`) y persiste la URL en `imagen_url`. Ver `../GUIA_VPS_FILES.md`.
 - Cliente HTTP o frontend (por ejemplo en `http://localhost:3000`) alineado con la configuración **CORS** del servidor.
 
 ---
@@ -243,7 +243,7 @@ Prefijo base: raíz del servidor (ej. `http://localhost:4000`). Rutas montadas e
 | `/coupons` | Admin | CRUD de cupones. |
 | `/orders` | Cliente + admin | `GET /me` (historial del cliente autenticado por cookie/Bearer cliente); listado y detalle admin; `PATCH /:id/status` (admin). |
 | `/public` | Pública | Catálogo: categorías, productos, promociones activas; `POST /coupons/validate`; `POST /orders` (si hay cookies de sesión válidas, puede asociar `usuario_id` / `cliente_id` al pedido); `POST /checkout/preference` (501); `POST /checkout/webhook` (stub 200). |
-| `/admin` | Admin | `GET /dashboard`, `GET/PUT /settings`; `GET/POST/PUT/PATCH/DELETE /categorias` (ABM categorías, `imagen_url`). |
+| `/admin` | Admin | `GET /dashboard`, `GET/PUT /settings`; `POST /upload-imagen`; ABM categorías/productos/promociones con `imagen_url`. |
 | `/health` | Pública | `GET /` — estado, uptime, memoria, ping a BD. |
 
 **Roles en código:** en `usuarios`, `ADMIN`, `ENCARGADO`, `VENDEDOR` (panel) y opcionalmente `CLIENTE` si existiera legado en esa tabla; en tienda, `CLIENTE` en `clientes`. El middleware `requireAdmin` exige rol **`ADMIN`** en base de datos (gestión de `/users`, categorías, pedidos admin, etc.).
@@ -307,7 +307,7 @@ En modo `NODE_ENV=test`, Morgan no se registra (útil si se ejecutan tests con S
 - **JWT:** sesión principal en **cookies httpOnly** (`config/authCookie.js`); la cabecera **`Authorization: Bearer`** sigue soportada para APIs o herramientas (mismo secreto `JWT_SECRET`). La expiración del access token es mayor en `development` (2h) que en el resto (1h), alineada con `ACCESS_TOKEN_MAX_AGE_MS` en `config/constants.js`.
 - **Login unificado** no devuelve el token en el cuerpo de la respuesta: reduce riesgo de filtrado por logs del cliente; el frontend debe confiar en la cookie o, si usás Bearer, obtener el token por otro canal solo en flujos que lo requieran.
 - **CORS** restrictivo fuera de desarrollo: configurá `FRONTEND_URL` y `ALLOWED_ORIGINS` en producción; el cliente debe enviar **`credentials: true`** si usa cookies de sesión.
-- Imágenes: el API solo valida y guarda **URLs** (`imagen_url`); no acepta multipart de imágenes en el servidor.
+- Imágenes: subida autenticada vía `POST /admin/upload-imagen` (multer, máx. 5 MB); la URL pública se guarda en `imagen_url`. Ver `../GUIA_VPS_FILES.md`.
 
 ---
 
