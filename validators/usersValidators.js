@@ -38,6 +38,29 @@ const changePasswordSchema = z.object({
     password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(128),
 });
 
+/** Perfil propio del staff (`PATCH /users/me`). No permite rol ni activo. */
+const updateProfileSchema = z
+    .object({
+        nombre: z.string().min(2, 'Nombre mínimo 2 caracteres').max(100).optional(),
+        apellido: z.string().min(2, 'Apellido mínimo 2 caracteres').max(100).optional(),
+        dni: optionalDni,
+        email: z.string().email('Email válido requerido').optional(),
+        telefono: z.string().max(20).optional().nullable(),
+    })
+    .strict()
+    .refine((data) => Object.keys(data).length > 0, { message: 'Debe enviar al menos un campo' });
+
+const changeOwnPasswordSchema = z
+    .object({
+        currentPassword: z.string().min(1, 'La contraseña actual es obligatoria'),
+        newPassword: z.string().min(6, 'La nueva contraseña debe tener al menos 6 caracteres').max(128),
+        confirmPassword: z.string().min(1, 'Confirmá la nueva contraseña'),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+        message: 'La confirmación de contraseña no coincide',
+        path: ['confirmPassword'],
+    });
+
 const listUsuariosQuerySchema = z.object({
     page: z.coerce.number().int().positive().optional().default(PAGINATION.DEFAULT_PAGE),
     limit: z.coerce
@@ -55,7 +78,9 @@ const listUsuariosQuerySchema = z.object({
 module.exports = {
     createUserSchema,
     updateUserSchema,
+    updateProfileSchema,
     changePasswordSchema,
+    changeOwnPasswordSchema,
     listUsuariosQuerySchema,
     staffRoleEnum,
 };

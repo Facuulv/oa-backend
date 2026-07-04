@@ -33,9 +33,32 @@ exports.update = asyncHandler(async (req, res) => {
     res.json({ ok: true, data: usuario, message: 'Usuario actualizado' });
 });
 
+exports.getMe = asyncHandler(async (req, res) => {
+    const usuario = await adminUsuariosService.getMe(req.auth.id);
+    res.json({ ok: true, data: usuario });
+});
+
+exports.updateMe = asyncHandler(async (req, res) => {
+    const usuario = await adminUsuariosService.updateMe(req.auth.id, req.validatedData);
+    res.json({ ok: true, data: usuario, message: 'Perfil actualizado' });
+});
+
+exports.changeOwnPassword = asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.validatedData;
+    const usuario = await adminUsuariosService.changeOwnPassword(req.auth.id, {
+        currentPassword,
+        newPassword,
+    });
+    res.json({ ok: true, data: usuario, message: 'Contraseña actualizada correctamente' });
+});
+
 exports.changePassword = asyncHandler(async (req, res) => {
     const { id } = req.validatedParams;
-    const usuario = await adminUsuariosService.changePassword(id, req.validatedData.password);
+    const usuario = await adminUsuariosService.changePassword(
+        req.auth.id,
+        id,
+        req.validatedData.password,
+    );
     res.json({ ok: true, data: usuario });
 });
 

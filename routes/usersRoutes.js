@@ -1,19 +1,32 @@
 const express = require('express');
 const router = express.Router();
 const usersController = require('../controllers/usersController');
-const { requireAdmin } = require('../middlewares/auth');
+const { authenticateUsuario, requireAdmin } = require('../middlewares/auth');
 const { apiRateLimiter } = require('../middlewares/rateLimit');
 const { validate, validateParams, validateQuery } = require('../middlewares/validate');
 const {
     createUserSchema,
     updateUserSchema,
+    updateProfileSchema,
     changePasswordSchema,
+    changeOwnPasswordSchema,
     listUsuariosQuerySchema,
 } = require('../validators/usersValidators');
 const { idParamSchema } = require('../validators/common');
 
 router.get('/', apiRateLimiter, ...requireAdmin, validateQuery(listUsuariosQuerySchema), usersController.list);
 router.post('/', apiRateLimiter, ...requireAdmin, validate(createUserSchema), usersController.create);
+
+router.get('/me', apiRateLimiter, authenticateUsuario, usersController.getMe);
+router.patch('/me', apiRateLimiter, authenticateUsuario, validate(updateProfileSchema), usersController.updateMe);
+router.patch(
+    '/me/password',
+    apiRateLimiter,
+    authenticateUsuario,
+    validate(changeOwnPasswordSchema),
+    usersController.changeOwnPassword,
+);
+
 router.patch(
     '/:id/password',
     apiRateLimiter,

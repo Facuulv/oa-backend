@@ -48,6 +48,15 @@ const findByIdAdmin = async (id) => {
     return rows[0] ? mapRowToPublic(rows[0]) : null;
 };
 
+const findByIdWithPasswordHash = async (id) => {
+    const [rows] = await db.execute(
+        `SELECT id, nombre, apellido, dni, email, telefono, password_hash, rol, activo, fecha_creacion, fecha_modificacion
+         FROM usuarios WHERE id = ? LIMIT 1`,
+        [id],
+    );
+    return rows[0] || null;
+};
+
 const emailExists = async (email) => {
     const [rows] = await db.execute('SELECT id FROM usuarios WHERE email = ? LIMIT 1', [email]);
     return rows.length > 0;
@@ -195,6 +204,7 @@ module.exports = {
     findByIdPublic,
     findByIdForAuth,
     findByIdAdmin,
+    findByIdWithPasswordHash,
     emailExists,
     emailExistsExcluding,
     dniExists,

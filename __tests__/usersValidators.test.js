@@ -1,7 +1,9 @@
 const {
     createUserSchema,
     updateUserSchema,
+    updateProfileSchema,
     changePasswordSchema,
+    changeOwnPasswordSchema,
     listUsuariosQuerySchema,
 } = require('../validators/usersValidators');
 
@@ -40,6 +42,35 @@ describe('usersValidators', () => {
 
     it('changePasswordSchema valida longitud mínima', () => {
         expect(() => changePasswordSchema.parse({ password: 'short' })).toThrow();
+    });
+
+    it('updateProfileSchema rechaza objeto vacío', () => {
+        expect(() => updateProfileSchema.parse({})).toThrow();
+    });
+
+    it('updateProfileSchema no acepta rol ni activo', () => {
+        expect(() =>
+            updateProfileSchema.parse({ nombre: 'Ana', rol: 'ADMIN' }),
+        ).toThrow();
+    });
+
+    it('changeOwnPasswordSchema exige coincidencia de confirmación', () => {
+        expect(() =>
+            changeOwnPasswordSchema.parse({
+                currentPassword: 'oldpass',
+                newPassword: 'newpass1',
+                confirmPassword: 'other',
+            }),
+        ).toThrow();
+    });
+
+    it('changeOwnPasswordSchema acepta payload válido', () => {
+        const out = changeOwnPasswordSchema.parse({
+            currentPassword: 'oldpass',
+            newPassword: 'newpass1',
+            confirmPassword: 'newpass1',
+        });
+        expect(out.newPassword).toBe('newpass1');
     });
 
     it('listUsuariosQuerySchema acepta filtros de query', () => {

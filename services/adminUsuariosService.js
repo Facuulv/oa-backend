@@ -43,6 +43,18 @@ const assertSelfDeactivate = (actorId, targetId, updates) => {
     }
 };
 
+const assertNotSelfAdminMutation = (actorId, targetId, kind = 'edit') => {
+    if (Number(actorId) !== Number(targetId)) {
+        return;
+    }
+
+    if (kind === 'password') {
+        throw new AppError('Usá Mi perfil para cambiar tu contraseña', 403, 'SELF_PASSWORD_USE_PROFILE');
+    }
+
+    throw new AppError('Usá Mi perfil para editar tu cuenta', 403, 'SELF_EDIT_USE_PROFILE');
+};
+
 const list = async (query) => userRepository.listUsuarios(query);
 
 const getById = async (id) => {
@@ -83,10 +95,80 @@ const create = async (data) => {
     return getById(id);
 };
 
+const getMe = async (id) => {
+    const u = await userRepository.findByIdAdmin(id);
+    if (!u) {
+        throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+    }
+    if (!u.activo) {
+        throw new AppError('Cuenta inactiva', 403, 'USER_INACTIVE');
+    }
+    return u;
+};
+
+const updateMe = async (id, fields) => {
+    if (Object.keys(fields).length === 0) {
+        throw new AppError('No hay campos para actualizar', 400, 'NO_FIELDS');
+    }
+
+    const existing = await userRepository.findByIdAdmin(id);
+    if (!existing) {
+        throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+    }
+    if (!existing.activo) {
+        throw new AppError('Cuenta inactiva', 403, 'USER_INACTIVE');
+    }
+
+    if (fields.email !== undefined) {
+        const taken = await userRepository.emailExistsExcluding(fields.email, id);
+        if (taken) {
+            throw new AppError('El email ya está registrado', 409, 'EMAIL_EXISTS');
+        }
+    }
+
+    if (fields.dni !== undefined) {
+        const dniVal = fields.dni;
+        if (dniVal !== null && dniVal !== undefined && String(dniVal).trim() !== '') {
+            const taken = await userRepository.dniExistsExcluding(String(dniVal).trim(), id);
+            if (taken) {
+                throw new AppError('El DNI ya está registrado', 409, 'DNI_EXISTS');
+            }
+        }
+    }
+
+    const affected = await userRepository.updateUsuario(id, fields);
+    if (!affected) {
+        throw new AppError('No hay campos válidos para actualizar', 400, 'NO_FIELDS');
+    }
+
+    return getMe(id);
+};
+
+const changeOwnPassword = async (id, { currentPassword, newPassword }) => {
+    const row = await userRepository.findByIdWithPasswordHash(id);
+    if (!row) {
+        throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+    }
+    if (!row.activo || Number(row.activo) === 0) {
+        throw new AppError('Cuenta inactiva', 403, 'USER_INACTIVE');
+    }
+
+    const valid = await bcrypt.compare(currentPassword, row.password_hash);
+    if (!valid) {
+        throw new AppError('La contraseña actual es incorrecta', 400, 'CURRENT_PASSWORD_INVALID');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await userRepository.updatePasswordHash(id, passwordHash);
+    return getMe(id);
+};
+
 const update = async (actorId, id, fields) => {
     if (Object.keys(fields).length === 0) {
         throw new AppError('No hay campos para actualizar', 400, 'NO_FIELDS');
     }
+
+    assertNotSelfAdminMutation(actorId, id, 'edit');
 
     const existing = await userRepository.findByIdAdmin(id);
     if (!existing) {
@@ -121,7 +203,9 @@ const update = async (actorId, id, fields) => {
     return getById(id);
 };
 
-const changePassword = async (id, password) => {
+const changePassword = async (actorId, id, password) => {
+    assertNotSelfAdminMutation(actorId, id, 'password');
+
     const existing = await userRepository.findByIdAdmin(id);
     if (!existing) {
         throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
@@ -139,6 +223,9 @@ const deactivate = async (actorId, id) => {
 module.exports = {
     list,
     getById,
+    getMe,
+    updateMe,
+    changeOwnPassword,
     create,
     update,
     changePassword,
